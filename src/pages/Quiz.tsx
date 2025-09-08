@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { mockTopics, mockQuestions, mockResults, Question } from "@/data/mockData";
+import { api } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Clock, CheckCircle, XCircle } from "lucide-react";
 
@@ -21,21 +22,84 @@ const Quiz = () => {
   const [score, setScore] = useState(0);
   const [showResults, setShowResults] = useState(false);
 
-  const topic = mockTopics.find(t => t.id === parseInt(topicId || '0'));
-  const questions = mockQuestions.filter(q => q.topic_id === parseInt(topicId || '0'));
+  const [topics, setTopics] = useState<{ id: number; title: string }[]>([]);
+  const [questions, setQuestions] = useState<Question[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [notFound, setNotFound] = useState(false);
 
   useEffect(() => {
-    if (!user || !topic || questions.length === 0) {
-      navigate('/topics');
-      return;
-    }
-  }, [user, topic, questions, navigate]);
+    (async () => {
+      try {
+        // Load topics for displaying the real topic name
+        const trows = await api.topics.list();
+        setTopics(trows.map((t: any) => ({ id: t.id, title: t.title })));
 
-  if (!user || !topic || questions.length === 0) {
-    return null;
+        const rows = await api.questions.list(parseInt(topicId || '0'));
+        const mapped: Question[] = rows.map((r: any) => {
+          let parsed: any = {};
+          try { parsed = r.body ? JSON.parse(r.body) : {}; } catch {}
+          return {
+            id: r.id,
+            topic_id: r.topic_id ?? parsed.topic_id ?? 0,
+            question_text: r.title,
+            option1: parsed.option1 ?? "",
+            option2: parsed.option2 ?? "",
+            option3: parsed.option3 ?? "",
+            option4: parsed.option4 ?? "",
+            correct_option: parsed.correct_option ?? 1,
+            created_at: r.created_at || new Date().toISOString(),
+          };
+        });
+        setQuestions(mapped);
+        setNotFound(mapped.length === 0);
+      } catch (e) {
+        console.error(e);
+        setNotFound(true);
+      }
+      setLoading(false);
+    })();
+  }, [topicId]);
+
+  useEffect(() => {
+    if (!user) {
+      navigate('/login');
+    }
+  }, [user, navigate]);
+
+  if (!user) return null;
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-muted-foreground">Loading quiz…</div>
+      </div>
+    );
+  }
+
+  if (notFound) {
+    return (
+      <div className="min-h-screen bg-background">
+        <nav className="border-b bg-card">
+          <div className="container mx-auto px-4 py-4">
+            <Button asChild variant="ghost">
+              <Link to="/topics">
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Back to Topics
+              </Link>
+            </Button>
+          </div>
+        </nav>
+        <div className="container mx-auto px-4 py-8 text-center text-muted-foreground">
+          No questions available for this topic yet.
+        </div>
+      </div>
+    );
   }
 
   const currentQuestion = questions[currentQuestionIndex];
+  const currentTopicTitle = topics.find(t => t.id === (questions[0]?.topic_id || parseInt(topicId || '0')))?.title
+    || mockTopics.find(t => t.id === parseInt(topicId || '0'))?.title
+    || "Topic";
   const progress = ((currentQuestionIndex + 1) / questions.length) * 100;
 
   const handleAnswerSelect = (optionNumber: number) => {
@@ -59,7 +123,7 @@ const Quiz = () => {
     }
   };
 
-  const completeQuiz = () => {
+  const completeQuiz = async () => {
     let correctAnswers = 0;
     
     questions.forEach(question => {
@@ -73,16 +137,12 @@ const Quiz = () => {
     setIsCompleted(true);
     setShowResults(true);
 
-    // In real implementation, save to MySQL database
-    const newResult = {
-      id: mockResults.length + 1,
-      user_id: user.id,
-      topic_id: topic.id,
-      score: correctAnswers,
-      total_questions: questions.length,
-      taken_at: new Date().toISOString()
-    };
-    mockResults.push(newResult);
+    // Persist to backend
+    try {
+      await api.results.save(user.id, questions[0]?.topic_id || Number(topicId) || 0, correctAnswers, questions.length);
+    } catch (e) {
+      console.error(e);
+    }
 
     toast({
       title: "Quiz Completed!",
@@ -123,7 +183,7 @@ const Quiz = () => {
             <CardHeader className="text-center">
               <CardTitle className="text-2xl mb-4">Quiz Results</CardTitle>
               <div className="space-y-4">
-                <h3 className="text-xl font-semibold">{topic.title}</h3>
+                <h3 className="text-xl font-semibold">{currentTopicTitle}</h3>
                 <div className={`text-4xl font-bold ${getScoreColor()}`}>
                   {score}/{questions.length}
                 </div>
@@ -208,7 +268,7 @@ const Quiz = () => {
           {/* Progress */}
           <div className="mb-6">
             <div className="flex justify-between items-center mb-2">
-              <h2 className="text-xl font-semibold">{topic.title}</h2>
+              <h2 className="text-xl font-semibold">{currentTopicTitle}</h2>
               <Badge variant="outline">
                 {currentQuestionIndex + 1}/{questions.length}
               </Badge>
@@ -219,9 +279,7 @@ const Quiz = () => {
           {/* Question Card */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg">
-                {currentQuestion.question_text}
-              </CardTitle>
+              <CardTitle className="text-lg">{currentQuestion.question_text}</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-3">

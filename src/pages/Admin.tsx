@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Link, useNavigate } from "react-router-dom";
 import { mockTopics, mockQuestions, Topic, Question } from "@/data/mockData";
+import { api } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Plus, Edit, Trash2, BookOpen, HelpCircle } from "lucide-react";
 
@@ -21,6 +22,10 @@ const Admin = () => {
   // Topic form state
   const [newTopic, setNewTopic] = useState({ title: '', description: '' });
   const [editingTopic, setEditingTopic] = useState<Topic | null>(null);
+
+  // Local questions state persisted in backend
+  const [questions, setQuestions] = useState<Question[]>([]);
+  const [topics, setTopics] = useState<Topic[]>([]);
 
   // Question form state
   const [newQuestion, setNewQuestion] = useState({
@@ -34,12 +39,45 @@ const Admin = () => {
   });
   const [editingQuestion, setEditingQuestion] = useState<Question | null>(null);
 
-  if (!user || user.role !== 'admin') {
+  if (!user) {
+    navigate('/login');
+    return null;
+  }
+  if (user.role !== 'admin') {
     navigate('/dashboard');
     return null;
   }
 
-  const handleCreateTopic = () => {
+  useEffect(() => {
+    (async () => {
+      try {
+        const topicsRows = await api.topics.list();
+        setTopics(topicsRows.map((t: any) => ({ id: t.id, title: t.title, description: t.description ?? '', created_at: t.created_at })));
+
+        const rows = await api.questions.list();
+        const mapped: Question[] = rows.map((r: any) => {
+          let parsed: any = {};
+          try { parsed = r.body ? JSON.parse(r.body) : {}; } catch {}
+          return {
+            id: r.id,
+            topic_id: r.topic_id ?? parsed.topic_id ?? (topicsRows[0]?.id ?? 1),
+            question_text: r.title,
+            option1: parsed.option1 ?? "",
+            option2: parsed.option2 ?? "",
+            option3: parsed.option3 ?? "",
+            option4: parsed.option4 ?? "",
+            correct_option: parsed.correct_option ?? 1,
+            created_at: r.created_at || new Date().toISOString(),
+          } as Question;
+        });
+        setQuestions(mapped);
+      } catch (e) {
+        console.error(e);
+      }
+    })();
+  }, []);
+
+  const handleCreateTopic = async () => {
     if (!newTopic.title.trim()) {
       toast({
         title: "Error",
@@ -48,16 +86,19 @@ const Admin = () => {
       });
       return;
     }
-
-    // In real implementation, this would call your MySQL backend
-    const topic: Topic = {
-      id: mockTopics.length + 1,
-      title: newTopic.title,
-      description: newTopic.description,
-      created_at: new Date().toISOString()
-    };
-    
-    mockTopics.push(topic);
+    try {
+      const { id } = await api.topics.create(newTopic.title, newTopic.description || null, user!.id);
+      const topic: Topic = {
+        id,
+        title: newTopic.title,
+        description: newTopic.description,
+        created_at: new Date().toISOString()
+      };
+      setTopics(prev => [topic, ...prev]);
+    } catch (e) {
+      toast({ title: "Error", description: (e as Error).message, variant: "destructive" });
+      return;
+    }
     setNewTopic({ title: '', description: '' });
     
     toast({
@@ -66,40 +107,30 @@ const Admin = () => {
     });
   };
 
-  const handleUpdateTopic = () => {
+  const handleUpdateTopic = async () => {
     if (!editingTopic || !editingTopic.title.trim()) return;
-
-    const index = mockTopics.findIndex(t => t.id === editingTopic.id);
-    if (index !== -1) {
-      mockTopics[index] = editingTopic;
+    try {
+      await api.topics.update(editingTopic.id, editingTopic.title, editingTopic.description, user!.id);
+      setTopics(prev => prev.map(t => t.id === editingTopic.id ? editingTopic : t));
       setEditingTopic(null);
-      toast({
-        title: "Success",
-        description: "Topic updated successfully"
-      });
+      toast({ title: "Success", description: "Topic updated successfully" });
+    } catch (e) {
+      toast({ title: "Error", description: (e as Error).message, variant: "destructive" });
     }
   };
 
-  const handleDeleteTopic = (topicId: number) => {
-    const index = mockTopics.findIndex(t => t.id === topicId);
-    if (index !== -1) {
-      mockTopics.splice(index, 1);
-      // Also remove questions for this topic
-      const questionIndices = mockQuestions
-        .map((q, i) => q.topic_id === topicId ? i : -1)
-        .filter(i => i !== -1)
-        .reverse();
-      
-      questionIndices.forEach(i => mockQuestions.splice(i, 1));
-      
-      toast({
-        title: "Success",
-        description: "Topic and its questions deleted successfully"
-      });
+  const handleDeleteTopic = async (topicId: number) => {
+    try {
+      await api.topics.remove(topicId, user!.id);
+      setTopics(prev => prev.filter(t => t.id !== topicId));
+      setQuestions(prev => prev.filter(q => q.topic_id !== topicId));
+      toast({ title: "Success", description: "Topic and its questions deleted successfully" });
+    } catch (e) {
+      toast({ title: "Error", description: (e as Error).message, variant: "destructive" });
     }
   };
 
-  const handleCreateQuestion = () => {
+  const handleCreateQuestion = async () => {
     if (!newQuestion.topic_id || !newQuestion.question_text.trim() || 
         !newQuestion.option1.trim() || !newQuestion.option2.trim() || 
         !newQuestion.option3.trim() || !newQuestion.option4.trim()) {
@@ -111,19 +142,38 @@ const Admin = () => {
       return;
     }
 
-    const question: Question = {
-      id: mockQuestions.length + 1,
+    // Persist minimal question text as one backend question
+    if (!user) {
+      toast({ title: "Not logged in", description: "Please log in before creating questions.", variant: "destructive" });
+      return;
+    }
+    const title = newQuestion.question_text;
+    const body = JSON.stringify({
       topic_id: parseInt(newQuestion.topic_id),
-      question_text: newQuestion.question_text,
       option1: newQuestion.option1,
       option2: newQuestion.option2,
       option3: newQuestion.option3,
       option4: newQuestion.option4,
-      correct_option: newQuestion.correct_option,
-      created_at: new Date().toISOString()
-    };
-
-    mockQuestions.push(question);
+      correct_option: newQuestion.correct_option
+    });
+    try {
+      const { id } = await api.questions.create(title, body, user!.id, parseInt(newQuestion.topic_id));
+      const question: Question = {
+        id,
+        topic_id: parseInt(newQuestion.topic_id),
+        question_text: newQuestion.question_text,
+        option1: newQuestion.option1,
+        option2: newQuestion.option2,
+        option3: newQuestion.option3,
+        option4: newQuestion.option4,
+        correct_option: newQuestion.correct_option,
+        created_at: new Date().toISOString()
+      };
+      setQuestions(prev => [question, ...prev]);
+    } catch (e) {
+      toast({ title: "Error", description: (e as Error).message, variant: "destructive" });
+      return;
+    }
     setNewQuestion({
       topic_id: '',
       question_text: '',
@@ -140,28 +190,34 @@ const Admin = () => {
     });
   };
 
-  const handleUpdateQuestion = () => {
+  const handleUpdateQuestion = async () => {
     if (!editingQuestion) return;
 
-    const index = mockQuestions.findIndex(q => q.id === editingQuestion.id);
-    if (index !== -1) {
-      mockQuestions[index] = editingQuestion;
-      setEditingQuestion(null);
-      toast({
-        title: "Success",
-        description: "Question updated successfully"
+    try {
+      const body = JSON.stringify({
+        topic_id: editingQuestion.topic_id,
+        option1: editingQuestion.option1,
+        option2: editingQuestion.option2,
+        option3: editingQuestion.option3,
+        option4: editingQuestion.option4,
+        correct_option: editingQuestion.correct_option
       });
+      await api.questions.update(editingQuestion.id, editingQuestion.question_text, body, user!.id, editingQuestion.topic_id);
+      setQuestions(prev => prev.map(q => q.id === editingQuestion.id ? editingQuestion : q));
+      setEditingQuestion(null);
+      toast({ title: "Success", description: "Question updated successfully" });
+    } catch (e) {
+      toast({ title: "Error", description: (e as Error).message, variant: "destructive" });
     }
   };
 
-  const handleDeleteQuestion = (questionId: number) => {
-    const index = mockQuestions.findIndex(q => q.id === questionId);
-    if (index !== -1) {
-      mockQuestions.splice(index, 1);
-      toast({
-        title: "Success",
-        description: "Question deleted successfully"
-      });
+  const handleDeleteQuestion = async (questionId: number) => {
+    try {
+      await api.questions.remove(questionId, user!.id);
+      setQuestions(prev => prev.filter(q => q.id !== questionId));
+      toast({ title: "Success", description: "Question deleted successfully" });
+    } catch (e) {
+      toast({ title: "Error", description: (e as Error).message, variant: "destructive" });
     }
   };
 
@@ -195,7 +251,7 @@ const Admin = () => {
           {/* Topics Tab */}
           <TabsContent value="topics" className="space-y-6">
             {/* Create Topic */}
-            <Card>
+            <Card className="bg-quiz-primary/10 border-quiz-primary/20">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Plus className="h-5 w-5" />
@@ -230,17 +286,17 @@ const Admin = () => {
             </Card>
 
             {/* Existing Topics */}
-            <Card>
+            <Card className="bg-quiz-primary/10 border-quiz-primary/20">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <BookOpen className="h-5 w-5" />
-                  Existing Topics ({mockTopics.length})
+                  Existing Topics ({topics.length})
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {mockTopics.map((topic) => {
-                    const questionCount = mockQuestions.filter(q => q.topic_id === topic.id).length;
+                  {topics.map((topic) => {
+                    const questionCount = questions.filter(q => q.topic_id === topic.id).length;
                     
                     return (
                       <div key={topic.id} className="border rounded-lg p-4">
@@ -298,7 +354,7 @@ const Admin = () => {
                     );
                   })}
                   
-                  {mockTopics.length === 0 && (
+                  {topics.length === 0 && (
                     <div className="text-center py-8">
                       <BookOpen className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
                       <p className="text-muted-foreground">No topics created yet</p>
@@ -312,7 +368,7 @@ const Admin = () => {
           {/* Questions Tab */}
           <TabsContent value="questions" className="space-y-6">
             {/* Create Question */}
-            <Card>
+            <Card className="bg-quiz-primary/10 border-quiz-primary/20">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Plus className="h-5 w-5" />
@@ -327,7 +383,7 @@ const Admin = () => {
                       <SelectValue placeholder="Choose a topic" />
                     </SelectTrigger>
                     <SelectContent>
-                      {mockTopics.map((topic) => (
+                      {topics.map((topic) => (
                         <SelectItem key={topic.id} value={topic.id.toString()}>
                           {topic.title}
                         </SelectItem>
@@ -405,17 +461,17 @@ const Admin = () => {
             </Card>
 
             {/* Existing Questions */}
-            <Card>
+            <Card className="bg-quiz-primary/10 border-quiz-primary/20">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <HelpCircle className="h-5 w-5" />
-                  Existing Questions ({mockQuestions.length})
+                  Existing Questions ({questions.length})
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {mockQuestions.map((question) => {
-                    const topic = mockTopics.find(t => t.id === question.topic_id);
+                  {questions.map((question) => {
+                    const topic = topics.find(t => t.id === question.topic_id);
                     
                     return (
                       <div key={question.id} className="border rounded-lg p-4">
@@ -465,7 +521,7 @@ const Admin = () => {
                     );
                   })}
                   
-                  {mockQuestions.length === 0 && (
+                  {questions.length === 0 && (
                     <div className="text-center py-8">
                       <HelpCircle className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
                       <p className="text-muted-foreground">No questions created yet</p>

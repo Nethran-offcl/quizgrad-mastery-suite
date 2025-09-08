@@ -4,6 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Link } from "react-router-dom";
 import { mockTopics, mockQuestions, mockResults } from "@/data/mockData";
+import { useEffect, useMemo, useState } from "react";
+import { api } from "@/lib/api";
 import { BookOpen, Play, BarChart3, ArrowLeft } from "lucide-react";
 
 const Topics = () => {
@@ -13,8 +15,40 @@ const Topics = () => {
     return null;
   }
 
+  const [questions, setQuestions] = useState<typeof mockQuestions>([]);
+  const [topics, setTopics] = useState(mockTopics);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const topicsRows = await api.topics.list();
+        setTopics(topicsRows.map((t: any) => ({ id: t.id, title: t.title, description: t.description ?? '', created_at: t.created_at })));
+
+        const rows = await api.questions.list();
+        const mapped = rows.map((r: any) => {
+          let parsed: any = {};
+          try { parsed = r.body ? JSON.parse(r.body) : {}; } catch {}
+          return {
+            id: r.id,
+            topic_id: r.topic_id ?? parsed.topic_id ?? (topicsRows[0]?.id ?? 1),
+            question_text: r.title,
+            option1: parsed.option1 ?? "",
+            option2: parsed.option2 ?? "",
+            option3: parsed.option3 ?? "",
+            option4: parsed.option4 ?? "",
+            correct_option: parsed.correct_option ?? 1,
+            created_at: r.created_at || new Date().toISOString(),
+          };
+        });
+        setQuestions(mapped);
+      } catch (e) {
+        console.error(e);
+      }
+    })();
+  }, []);
+
   const getTopicStats = (topicId: number) => {
-    const questions = mockQuestions.filter(q => q.topic_id === topicId);
+    const questionsForTopic = questions.filter(q => q.topic_id === topicId);
     const userResults = mockResults.filter(r => r.topic_id === topicId && r.user_id === user.id);
     const totalAttempts = userResults.length;
     const bestScore = userResults.length > 0 
@@ -22,7 +56,7 @@ const Topics = () => {
       : 0;
     
     return {
-      questionCount: questions.length,
+      questionCount: questionsForTopic.length,
       totalAttempts,
       bestScore
     };
@@ -66,7 +100,7 @@ const Topics = () => {
         </div>
 
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {mockTopics.map((topic) => {
+          {topics.map((topic) => {
             const stats = getTopicStats(topic.id);
             
             return (
@@ -130,7 +164,7 @@ const Topics = () => {
           })}
         </div>
 
-        {mockTopics.length === 0 && (
+        {topics.length === 0 && (
           <div className="text-center py-12">
             <BookOpen className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
             <h3 className="text-lg font-medium mb-2">No Topics Available</h3>

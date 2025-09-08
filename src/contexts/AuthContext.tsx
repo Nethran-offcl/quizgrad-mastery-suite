@@ -2,25 +2,21 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 
 export interface User {
   id: number;
-  username: string;
+  email: string;
   role: 'admin' | 'user';
 }
 
 interface AuthContextType {
   user: User | null;
-  login: (username: string, password: string) => Promise<boolean>;
-  signup: (username: string, password: string, role?: 'admin' | 'user') => Promise<boolean>;
+  login: (email: string, password: string) => Promise<boolean>;
+  signup: (email: string, password: string, role?: 'admin' | 'user') => Promise<boolean>;
   logout: () => void;
   isLoading: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Mock users for demonstration
-const mockUsers: (User & { password: string })[] = [
-  { id: 1, username: 'admin', password: 'admin123', role: 'admin' },
-  { id: 2, username: 'user', password: 'user123', role: 'user' },
-];
+import { api } from "@/lib/api";
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
@@ -35,38 +31,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsLoading(false);
   }, []);
 
-  const login = async (username: string, password: string): Promise<boolean> => {
-    // In real implementation, this would call your MySQL backend
-    const foundUser = mockUsers.find(u => u.username === username && u.password === password);
-    
-    if (foundUser) {
-      const { password: _, ...userWithoutPassword } = foundUser;
-      setUser(userWithoutPassword);
-      localStorage.setItem('quiz_user', JSON.stringify(userWithoutPassword));
+  const login = async (email: string, password: string): Promise<boolean> => {
+    try {
+      const result = await api.auth.login(email, password);
+      const loggedUser: User = { id: result.userId, email, role: result.role };
+      setUser(loggedUser);
+      localStorage.setItem('quiz_user', JSON.stringify(loggedUser));
       return true;
+    } catch (e: any) {
+      if (e?.status === 401) return false;
+      throw e;
     }
-    return false;
   };
 
-  const signup = async (username: string, password: string, role: 'admin' | 'user' = 'user'): Promise<boolean> => {
-    // In real implementation, this would call your MySQL backend
-    const existingUser = mockUsers.find(u => u.username === username);
-    
-    if (!existingUser) {
-      const newUser = {
-        id: mockUsers.length + 1,
-        username,
-        password,
-        role
-      };
-      mockUsers.push(newUser);
-      
-      const { password: _, ...userWithoutPassword } = newUser;
-      setUser(userWithoutPassword);
-      localStorage.setItem('quiz_user', JSON.stringify(userWithoutPassword));
-      return true;
-    }
-    return false;
+  const signup = async (email: string, password: string, role: 'admin' | 'user' = 'user'): Promise<boolean> => {
+    await api.auth.signup(email, password, role);
+    const result = await api.auth.login(email, password);
+    const newUser: User = { id: result.userId, email, role: result.role };
+    setUser(newUser);
+    localStorage.setItem('quiz_user', JSON.stringify(newUser));
+    return true;
   };
 
   const logout = () => {
