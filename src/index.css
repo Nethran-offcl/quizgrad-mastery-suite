@@ -53,6 +53,17 @@ All colors MUST be HSL.
     --sidebar-border: 220 13% 91%;
 
     --sidebar-ring: 217.2 91.2% 59.8%;
+    
+    /* Quiz-specific design tokens */
+    --quiz-primary: 240 100% 50%;
+    --quiz-primary-foreground: 0 0% 100%;
+    --quiz-success: 142 76% 36%;
+    --quiz-success-foreground: 0 0% 100%;
+    --quiz-warning: 48 96% 53%;
+    --quiz-warning-foreground: 0 0% 9%;
+    --quiz-danger: 0 84% 60%;
+    --quiz-danger-foreground: 0 0% 100%;
+    --quiz-gradient: linear-gradient(135deg, hsl(var(--quiz-primary)), hsl(var(--primary)));
   }
 
   .dark {
@@ -91,6 +102,17 @@ All colors MUST be HSL.
     --sidebar-accent-foreground: 240 4.8% 95.9%;
     --sidebar-border: 240 3.7% 15.9%;
     --sidebar-ring: 217.2 91.2% 59.8%;
+    
+    /* Quiz-specific design tokens - dark mode */
+    --quiz-primary: 240 100% 60%;
+    --quiz-primary-foreground: 0 0% 100%;
+    --quiz-success: 142 76% 36%;
+    --quiz-success-foreground: 0 0% 100%;
+    --quiz-warning: 48 96% 53%;
+    --quiz-warning-foreground: 0 0% 9%;
+    --quiz-danger: 0 84% 60%;
+    --quiz-danger-foreground: 0 0% 100%;
+    --quiz-gradient: linear-gradient(135deg, hsl(var(--quiz-primary)), hsl(var(--primary)));
   }
 }
 

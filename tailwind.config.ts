@@ -57,6 +57,16 @@ export default {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
+        quiz: {
+          primary: "hsl(var(--quiz-primary))",
+          "primary-foreground": "hsl(var(--quiz-primary-foreground))",
+          success: "hsl(var(--quiz-success))",
+          "success-foreground": "hsl(var(--quiz-success-foreground))",
+          warning: "hsl(var(--quiz-warning))",
+          "warning-foreground": "hsl(var(--quiz-warning-foreground))",
+          danger: "hsl(var(--quiz-danger))",
+          "danger-foreground": "hsl(var(--quiz-danger-foreground))",
+        },
       },
       borderRadius: {
         lg: "var(--radius)",
