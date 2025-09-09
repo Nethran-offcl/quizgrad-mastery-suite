@@ -6,7 +6,7 @@ import { Link } from "react-router-dom";
 import { mockTopics, mockQuestions, mockResults } from "@/data/mockData";
 import { useEffect, useMemo, useState } from "react";
 import { api } from "@/lib/api";
-import { BookOpen, Play, BarChart3, ArrowLeft } from "lucide-react";
+import { BookOpen, Play, BarChart3, ArrowLeft, RefreshCw } from "lucide-react";
 
 const Topics = () => {
   const { user, logout } = useAuth();
@@ -17,42 +17,61 @@ const Topics = () => {
 
   const [questions, setQuestions] = useState<typeof mockQuestions>([]);
   const [topics, setTopics] = useState(mockTopics);
+  const [userResults, setUserResults] = useState<any[]>([]);
+
+  const loadData = async () => {
+    try {
+      const topicsRows = await api.topics.list();
+      setTopics(topicsRows.map((t: any) => ({ id: t.id, title: t.title, description: t.description ?? '', created_at: t.created_at })));
+
+      const rows = await api.questions.list();
+      const mapped = rows.map((r: any) => {
+        let parsed: any = {};
+        try { parsed = r.body ? JSON.parse(r.body) : {}; } catch {}
+        return {
+          id: r.id,
+          topic_id: r.topic_id ?? parsed.topic_id ?? (topicsRows[0]?.id ?? 1),
+          question_text: r.title,
+          option1: parsed.option1 ?? "",
+          option2: parsed.option2 ?? "",
+          option3: parsed.option3 ?? "",
+          option4: parsed.option4 ?? "",
+          correct_option: parsed.correct_option ?? 1,
+          created_at: r.created_at || new Date().toISOString(),
+        };
+      });
+      setQuestions(mapped);
+
+      // Load user's quiz results
+      const results = await api.results.listMine(user.id);
+      setUserResults(results);
+    } catch (e) {
+      console.error(e);
+    }
+  };
 
   useEffect(() => {
-    (async () => {
-      try {
-        const topicsRows = await api.topics.list();
-        setTopics(topicsRows.map((t: any) => ({ id: t.id, title: t.title, description: t.description ?? '', created_at: t.created_at })));
+    loadData();
+  }, [user.id]);
 
-        const rows = await api.questions.list();
-        const mapped = rows.map((r: any) => {
-          let parsed: any = {};
-          try { parsed = r.body ? JSON.parse(r.body) : {}; } catch {}
-          return {
-            id: r.id,
-            topic_id: r.topic_id ?? parsed.topic_id ?? (topicsRows[0]?.id ?? 1),
-            question_text: r.title,
-            option1: parsed.option1 ?? "",
-            option2: parsed.option2 ?? "",
-            option3: parsed.option3 ?? "",
-            option4: parsed.option4 ?? "",
-            correct_option: parsed.correct_option ?? 1,
-            created_at: r.created_at || new Date().toISOString(),
-          };
-        });
-        setQuestions(mapped);
-      } catch (e) {
-        console.error(e);
+  // Refresh data when component becomes visible (e.g., returning from quiz)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        loadData();
       }
-    })();
-  }, []);
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [user.id]);
 
   const getTopicStats = (topicId: number) => {
     const questionsForTopic = questions.filter(q => q.topic_id === topicId);
-    const userResults = mockResults.filter(r => r.topic_id === topicId && r.user_id === user.id);
-    const totalAttempts = userResults.length;
-    const bestScore = userResults.length > 0 
-      ? Math.max(...userResults.map(r => Math.round((r.score / r.total_questions) * 100)))
+    const topicResults = userResults.filter(r => r.topic_id === topicId);
+    const totalAttempts = topicResults.length;
+    const bestScore = topicResults.length > 0 
+      ? Math.max(...topicResults.map(r => Math.round((r.score / r.total_questions) * 100)))
       : 0;
     
     return {
@@ -94,9 +113,15 @@ const Topics = () => {
       </nav>
 
       <div className="container mx-auto px-4 py-8">
-        <div className="mb-8">
-          <h2 className="text-3xl font-bold mb-2">Quiz Topics</h2>
-          <p className="text-muted-foreground">Choose a topic to start your quiz</p>
+        <div className="mb-8 flex justify-between items-center">
+          <div>
+            <h2 className="text-3xl font-bold mb-2">Quiz Topics</h2>
+            <p className="text-muted-foreground">Choose a topic to start your quiz</p>
+          </div>
+          <Button onClick={loadData} variant="outline" size="sm">
+            <RefreshCw className="mr-2 h-4 w-4" />
+            Refresh
+          </Button>
         </div>
 
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">

@@ -6,7 +6,7 @@ import { Link } from "react-router-dom";
 import { mockTopics } from "@/data/mockData";
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
-import { Trophy, BookOpen, Clock, Target, Settings } from "lucide-react";
+import { Trophy, BookOpen, Clock, Target, Settings, RefreshCw } from "lucide-react";
 
 const Dashboard = () => {
   const { user, logout } = useAuth();
@@ -22,17 +22,31 @@ const Dashboard = () => {
   const secondaryTint = "bg-quiz-primary/15 border-quiz-primary/25";
   const neutralTint = "bg-quiz-primary/10 border-quiz-primary/20";
 
+  const loadData = async () => {
+    try {
+      const rows = await api.results.listMine(user.id);
+      setUserResults(rows);
+      const trows = await api.topics.list();
+      setTopics(trows.map((t: any) => ({ id: t.id, title: t.title, description: t.description ?? '', created_at: t.created_at })));
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   useEffect(() => {
-    (async () => {
-      try {
-        const rows = await api.results.listMine(user.id);
-        setUserResults(rows);
-        const trows = await api.topics.list();
-        setTopics(trows.map((t: any) => ({ id: t.id, title: t.title, description: t.description ?? '', created_at: t.created_at })));
-      } catch (e) {
-        console.error(e);
+    loadData();
+  }, [user.id]);
+
+  // Refresh data when component becomes visible (e.g., returning from quiz)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        loadData();
       }
-    })();
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, [user.id]);
   const totalQuizzes = userResults.length;
   const totalScore = userResults.reduce((sum, result) => sum + result.score, 0);
@@ -68,9 +82,15 @@ const Dashboard = () => {
       </nav>
 
       <div className="container mx-auto px-4 py-8">
-        <div className="mb-8">
-          <h2 className="text-3xl font-bold mb-2">Dashboard</h2>
-          <p className="text-muted-foreground">Track your progress and continue learning</p>
+        <div className="mb-8 flex justify-between items-center">
+          <div>
+            <h2 className="text-3xl font-bold mb-2">Dashboard</h2>
+            <p className="text-muted-foreground">Track your progress and continue learning</p>
+          </div>
+          <Button onClick={loadData} variant="outline" size="sm">
+            <RefreshCw className="mr-2 h-4 w-4" />
+            Refresh
+          </Button>
         </div>
 
         {/* Stats Cards */}

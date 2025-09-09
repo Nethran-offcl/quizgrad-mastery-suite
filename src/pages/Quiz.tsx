@@ -139,9 +139,17 @@ const Quiz = () => {
 
     // Persist to backend
     try {
-      await api.results.save(user.id, questions[0]?.topic_id || Number(topicId) || 0, correctAnswers, questions.length);
+      const topicIdToSave = questions[0]?.topic_id || Number(topicId) || 0;
+      console.log('Saving quiz result:', { userId: user.id, topicId: topicIdToSave, score: correctAnswers, totalQuestions: questions.length });
+      await api.results.save(user.id, topicIdToSave, correctAnswers, questions.length);
+      console.log('Quiz result saved successfully');
     } catch (e) {
-      console.error(e);
+      console.error('Failed to save quiz result:', e);
+      toast({
+        title: "Warning",
+        description: "Quiz completed but result may not have been saved. Check your dashboard.",
+        variant: "destructive"
+      });
     }
 
     toast({
