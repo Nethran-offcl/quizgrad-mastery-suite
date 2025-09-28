@@ -27,9 +27,14 @@ export async function initializeDatabase(): Promise<void> {
 			email VARCHAR(255) NOT NULL UNIQUE,
 			password_hash VARBINARY(255) NOT NULL,
 			salt VARBINARY(255) NOT NULL,
-			role ENUM('admin','user') NOT NULL DEFAULT 'user',
+			role ENUM('admin','quiz_manager','user') NOT NULL DEFAULT 'user',
 			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 		)`);
+
+		// Ensure ENUM includes new roles in case table already existed
+		try {
+			await connection.query("ALTER TABLE users MODIFY role ENUM('admin','quiz_manager','user') NOT NULL DEFAULT 'user'");
+		} catch {}
 
 		await connection.query(`CREATE TABLE IF NOT EXISTS questions (
 			id INT AUTO_INCREMENT PRIMARY KEY,

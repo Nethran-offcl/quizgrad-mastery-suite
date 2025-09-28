@@ -3,13 +3,13 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 export interface User {
   id: number;
   email: string;
-  role: 'admin' | 'user';
+  role: 'admin' | 'quiz_manager' | 'user';
 }
 
 interface AuthContextType {
   user: User | null;
   login: (email: string, password: string) => Promise<boolean>;
-  signup: (email: string, password: string, role?: 'admin' | 'user') => Promise<boolean>;
+  signup: (email: string, password: string, role?: 'admin' | 'quiz_manager' | 'user') => Promise<boolean>;
   logout: () => void;
   isLoading: boolean;
 }
@@ -44,7 +44,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const signup = async (email: string, password: string, role: 'admin' | 'user' = 'user'): Promise<boolean> => {
+  const signup = async (email: string, password: string, role: 'admin' | 'quiz_manager' | 'user' = 'user'): Promise<boolean> => {
     await api.auth.signup(email, password, role);
     const result = await api.auth.login(email, password);
     const newUser: User = { id: result.userId, email, role: result.role };

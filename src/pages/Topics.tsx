@@ -7,9 +7,11 @@ import { mockTopics, mockQuestions, mockResults } from "@/data/mockData";
 import { useEffect, useMemo, useState } from "react";
 import { api } from "@/lib/api";
 import { BookOpen, Play, BarChart3, ArrowLeft, RefreshCw } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 const Topics = () => {
   const { user, logout } = useAuth();
+  const { toast } = useToast();
 
   if (!user) {
     return null;
@@ -18,6 +20,7 @@ const Topics = () => {
   const [questions, setQuestions] = useState<typeof mockQuestions>([]);
   const [topics, setTopics] = useState(mockTopics);
   const [userResults, setUserResults] = useState<any[]>([]);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const loadData = async () => {
     try {
@@ -45,8 +48,24 @@ const Topics = () => {
       // Load user's quiz results
       const results = await api.results.listMine(user.id);
       setUserResults(results);
+      return true;
     } catch (e) {
       console.error(e);
+      return false;
+    }
+  };
+
+  const handleRefreshClick = async () => {
+    try {
+      setIsRefreshing(true);
+      const ok = await loadData();
+      if (!ok) {
+        toast({ title: "Refresh failed", description: "Could not load latest topics.", variant: "destructive" });
+      } else {
+        toast({ title: "Data updated", description: "Topics have been refreshed." });
+      }
+    } finally {
+      setIsRefreshing(false);
     }
   };
 
@@ -88,8 +107,8 @@ const Topics = () => {
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
           <div className="flex items-center gap-4">
             <h1 className="text-2xl font-bold text-quiz-primary">QuizGrad</h1>
-            <Badge variant={user.role === 'admin' ? 'default' : 'secondary'}>
-              {user.role === 'admin' ? 'Admin' : 'User'}
+            <Badge variant={user.role === 'admin' ? 'default' : user.role === 'quiz_manager' ? 'default' : 'secondary'}>
+              {user.role === 'admin' ? 'Admin' : user.role === 'quiz_manager' ? 'Quiz Manager' : 'User'}
             </Badge>
           </div>
           <div className="flex items-center gap-4">
@@ -100,7 +119,7 @@ const Topics = () => {
                 Dashboard
               </Link>
             </Button>
-            {user.role === 'admin' && (
+            {(user.role === 'admin' || user.role === 'quiz_manager') && (
               <Button asChild className="bg-quiz-primary hover:bg-quiz-primary/90">
                 <Link to="/admin">Admin Panel</Link>
               </Button>
@@ -118,8 +137,8 @@ const Topics = () => {
             <h2 className="text-3xl font-bold mb-2">Quiz Topics</h2>
             <p className="text-muted-foreground">Choose a topic to start your quiz</p>
           </div>
-          <Button onClick={loadData} variant="outline" size="sm">
-            <RefreshCw className="mr-2 h-4 w-4" />
+          <Button onClick={handleRefreshClick} variant="outline" size="sm" disabled={isRefreshing}>
+            <RefreshCw className={`mr-2 h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
         </div>

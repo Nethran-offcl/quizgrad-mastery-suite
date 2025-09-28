@@ -7,9 +7,11 @@ import { mockTopics } from "@/data/mockData";
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { Trophy, BookOpen, Clock, Target, Settings, RefreshCw } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 const Dashboard = () => {
   const { user, logout } = useAuth();
+  const { toast } = useToast();
 
   if (!user) {
     return null;
@@ -17,7 +19,9 @@ const Dashboard = () => {
 
   const [userResults, setUserResults] = useState<any[]>([]);
   const [topics, setTopics] = useState(mockTopics);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const isAdmin = user.role === 'admin';
+  const isQuizManager = user.role === 'quiz_manager';
   const primaryTint = "bg-quiz-primary/10 border-quiz-primary/20";
   const secondaryTint = "bg-quiz-primary/15 border-quiz-primary/25";
   const neutralTint = "bg-quiz-primary/10 border-quiz-primary/20";
@@ -28,8 +32,24 @@ const Dashboard = () => {
       setUserResults(rows);
       const trows = await api.topics.list();
       setTopics(trows.map((t: any) => ({ id: t.id, title: t.title, description: t.description ?? '', created_at: t.created_at })));
+      return true;
     } catch (e) {
       console.error(e);
+      return false;
+    }
+  };
+
+  const handleRefreshClick = async () => {
+    try {
+      setIsRefreshing(true);
+      const ok = await loadData();
+      if (!ok) {
+        toast({ title: "Refresh failed", description: "Could not load latest data.", variant: "destructive" });
+      } else {
+        toast({ title: "Data updated", description: "Dashboard has been refreshed." });
+      }
+    } finally {
+      setIsRefreshing(false);
     }
   };
 
@@ -60,8 +80,8 @@ const Dashboard = () => {
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
           <div className="flex items-center gap-4">
             <h1 className="text-2xl font-bold text-quiz-primary">QuizGrad</h1>
-            <Badge variant={user.role === 'admin' ? 'default' : 'secondary'}>
-              {user.role === 'admin' ? 'Admin' : 'User'}
+            <Badge variant={user.role === 'admin' ? 'default' : user.role === 'quiz_manager' ? 'default' : 'secondary'}>
+              {user.role === 'admin' ? 'Admin' : user.role === 'quiz_manager' ? 'Quiz Manager' : 'User'}
             </Badge>
           </div>
           <div className="flex items-center gap-4">
@@ -69,9 +89,15 @@ const Dashboard = () => {
             <Button asChild variant="outline">
               <Link to="/topics">Browse Topics</Link>
             </Button>
-            {user.role === 'admin' && (
+            {(user.role === 'admin' || user.role === 'quiz_manager') && (
               <Button asChild className="bg-quiz-primary hover:bg-quiz-primary/90">
                 <Link to="/admin">Admin Panel</Link>
+              </Button>
+            )}
+            {/* Only super admin (userId 0) can manage users */}
+            {user.role === 'admin' && user.id === 0 && (
+              <Button asChild variant="outline">
+                <Link to="/super-admin">Manage Users</Link>
               </Button>
             )}
             <Button onClick={logout} variant="ghost">
@@ -87,8 +113,8 @@ const Dashboard = () => {
             <h2 className="text-3xl font-bold mb-2">Dashboard</h2>
             <p className="text-muted-foreground">Track your progress and continue learning</p>
           </div>
-          <Button onClick={loadData} variant="outline" size="sm">
-            <RefreshCw className="mr-2 h-4 w-4" />
+          <Button onClick={handleRefreshClick} variant="outline" size="sm" disabled={isRefreshing}>
+            <RefreshCw className={`mr-2 h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
         </div>
@@ -194,7 +220,7 @@ const Dashboard = () => {
                 </Link>
               </Button>
               
-              {user.role === 'admin' && (
+              {(user.role === 'admin' || user.role === 'quiz_manager') && (
                 <>
                   <Button asChild className="w-full justify-start" variant="outline">
                     <Link to="/admin">

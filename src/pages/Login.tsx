@@ -102,12 +102,7 @@ const Login = () => {
               </p>
             </div>
 
-            {/* Demo credentials */}
-            <div className="mt-6 p-3 bg-muted rounded-md">
-              <p className="text-sm text-muted-foreground mb-2">Demo credentials:</p>
-              <p className="text-xs">Admin: admin / admin123</p>
-              <p className="text-xs">User: user / user123</p>
-            </div>
+            
           </CardContent>
         </Card>
       </div>

@@ -13,7 +13,7 @@ const Signup = () => {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [role, setRole] = useState<'user' | 'admin'>('user');
+  const [role, setRole] = useState<'user' | 'quiz_manager'>('user');
   const [isLoading, setIsLoading] = useState(false);
   const { signup } = useAuth();
   const { toast } = useToast();
@@ -113,13 +113,13 @@ const Signup = () => {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="role">Account Type</Label>
-                <Select value={role} onValueChange={(value: 'user' | 'admin') => setRole(value)}>
+                <Select value={role} onValueChange={(value: 'user' | 'quiz_manager') => setRole(value)}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="user">User</SelectItem>
-                    <SelectItem value="admin">Admin</SelectItem>
+                    <SelectItem value="quiz_manager">Quiz Manager</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

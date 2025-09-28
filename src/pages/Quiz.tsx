@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,6 +9,8 @@ import { mockTopics, mockQuestions, mockResults, Question } from "@/data/mockDat
 import { api } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Clock, CheckCircle, XCircle } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 
 const Quiz = () => {
   const { topicId } = useParams<{ topicId: string }>();
@@ -26,6 +28,64 @@ const Quiz = () => {
   const [questions, setQuestions] = useState<Question[]>([]);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+
+  // Timer & start controls
+  const [hasStarted, setHasStarted] = useState(false);
+  const [useTimer, setUseTimer] = useState(false);
+  const [timeLeft, setTimeLeft] = useState(20);
+  const timerRef = useRef<number | null>(null);
+  const [timedOutQuestionIds, setTimedOutQuestionIds] = useState<Set<number>>(new Set());
+
+  // Complete quiz (moved up to keep hooks unconditional below)
+  const completeQuiz = async () => {
+    let correctAnswers = 0;
+    questions.forEach(question => {
+      const userAnswer = selectedAnswers[question.id];
+      if (userAnswer === question.correct_option) {
+        correctAnswers++;
+      }
+    });
+
+    setScore(correctAnswers);
+    setIsCompleted(true);
+    setShowResults(true);
+
+    // Persist to backend
+    try {
+      const topicIdToSave = questions[0]?.topic_id || Number(topicId) || 0;
+      console.log('Saving quiz result:', { userId: user.id, topicId: topicIdToSave, score: correctAnswers, totalQuestions: questions.length });
+      await api.results.save(user.id, topicIdToSave, correctAnswers, questions.length);
+      console.log('Quiz result saved successfully');
+    } catch (e) {
+      console.error('Failed to save quiz result:', e);
+      toast({
+        title: "Warning",
+        description: "Quiz completed but result may not have been saved. Check your dashboard.",
+        variant: "destructive"
+      });
+    }
+
+    toast({
+      title: "Quiz Completed!",
+      description: `You scored ${correctAnswers} out of ${questions.length}`,
+    });
+  };
+
+  // Timeout handler (moved up so effects can reference it safely)
+  const handleTimeout = () => {
+    // Mark the current question as timed-out so user can't go back to it
+    setTimedOutQuestionIds(prev => {
+      const next = new Set(prev);
+      const q = questions[currentQuestionIndex];
+      if (q) next.add(q.id);
+      return next;
+    });
+    if (currentQuestionIndex < questions.length - 1) {
+      setCurrentQuestionIndex(prev => prev + 1);
+    } else {
+      completeQuiz();
+    }
+  };
 
   useEffect(() => {
     (async () => {
@@ -66,41 +126,76 @@ const Quiz = () => {
     }
   }, [user, navigate]);
 
+  // Timer hooks MUST be above any early returns
+  // Reset timer when question changes or when toggling timer/start
+  useEffect(() => {
+    if (!hasStarted) return;
+    if (!useTimer) return;
+    setTimeLeft(20);
+  }, [currentQuestionIndex, hasStarted, useTimer]);
+
+  // Tick timer when running
+  useEffect(() => {
+    if (!hasStarted || !useTimer || showResults) return;
+    if (timerRef.current) {
+      window.clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+    timerRef.current = window.setInterval(() => {
+      setTimeLeft(prev => {
+        if (prev <= 1) {
+          // time's up
+          window.clearInterval(timerRef.current || undefined);
+          timerRef.current = null;
+          handleTimeout();
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => {
+      if (timerRef.current) {
+        window.clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+    };
+  }, [hasStarted, useTimer, showResults, currentQuestionIndex]);
+
+  // Note: keep all hooks above; early returns may come below
   if (!user) return null;
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-muted-foreground">Loading quiz…</div>
-      </div>
-    );
-  }
-
-  if (notFound) {
-    return (
-      <div className="min-h-screen bg-background">
-        <nav className="border-b bg-card">
-          <div className="container mx-auto px-4 py-4">
-            <Button asChild variant="ghost">
-              <Link to="/topics">
-                <ArrowLeft className="mr-2 h-4 w-4" />
-                Back to Topics
-              </Link>
-            </Button>
-          </div>
-        </nav>
-        <div className="container mx-auto px-4 py-8 text-center text-muted-foreground">
-          No questions available for this topic yet.
+  if (loading) return (
+    <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="text-muted-foreground">Loading quiz…</div>
+    </div>
+  );
+  if (notFound) return (
+    <div className="min-h-screen bg-background">
+      <nav className="border-b bg-card">
+        <div className="container mx-auto px-4 py-4">
+          <Button asChild variant="ghost">
+            <Link to="/topics">
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Back to Topics
+            </Link>
+          </Button>
         </div>
+      </nav>
+      <div className="container mx-auto px-4 py-8 text-center text-muted-foreground">
+        No questions available for this topic yet.
       </div>
-    );
-  }
+    </div>
+  );
 
   const currentQuestion = questions[currentQuestionIndex];
   const currentTopicTitle = topics.find(t => t.id === (questions[0]?.topic_id || parseInt(topicId || '0')))?.title
     || mockTopics.find(t => t.id === parseInt(topicId || '0'))?.title
     || "Topic";
   const progress = ((currentQuestionIndex + 1) / questions.length) * 100;
+
+  const handleStart = () => {
+    setHasStarted(true);
+    if (useTimer) setTimeLeft(20);
+  };
 
   const handleAnswerSelect = (optionNumber: number) => {
     setSelectedAnswers(prev => ({
@@ -119,43 +214,12 @@ const Quiz = () => {
 
   const handlePrevious = () => {
     if (currentQuestionIndex > 0) {
+      const prevQuestion = questions[currentQuestionIndex - 1];
+      if (useTimer && timedOutQuestionIds.has(prevQuestion?.id)) {
+        return;
+      }
       setCurrentQuestionIndex(prev => prev - 1);
     }
-  };
-
-  const completeQuiz = async () => {
-    let correctAnswers = 0;
-    
-    questions.forEach(question => {
-      const userAnswer = selectedAnswers[question.id];
-      if (userAnswer === question.correct_option) {
-        correctAnswers++;
-      }
-    });
-
-    setScore(correctAnswers);
-    setIsCompleted(true);
-    setShowResults(true);
-
-    // Persist to backend
-    try {
-      const topicIdToSave = questions[0]?.topic_id || Number(topicId) || 0;
-      console.log('Saving quiz result:', { userId: user.id, topicId: topicIdToSave, score: correctAnswers, totalQuestions: questions.length });
-      await api.results.save(user.id, topicIdToSave, correctAnswers, questions.length);
-      console.log('Quiz result saved successfully');
-    } catch (e) {
-      console.error('Failed to save quiz result:', e);
-      toast({
-        title: "Warning",
-        description: "Quiz completed but result may not have been saved. Check your dashboard.",
-        variant: "destructive"
-      });
-    }
-
-    toast({
-      title: "Quiz Completed!",
-      description: `You scored ${correctAnswers} out of ${questions.length}`,
-    });
   };
 
   const getScoreColor = () => {
@@ -251,6 +315,50 @@ const Quiz = () => {
     );
   }
 
+  // Pre-start screen to choose timer option
+  if (!hasStarted) {
+    return (
+      <div className="min-h-screen bg-background">
+        <nav className="border-b bg-card">
+          <div className="container mx-auto px-4 py-4">
+            <Button asChild variant="ghost">
+              <Link to="/topics">
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Back to Topics
+              </Link>
+            </Button>
+          </div>
+        </nav>
+        <div className="container mx-auto px-4 py-8">
+          <Card className="max-w-2xl mx-auto">
+            <CardHeader>
+              <CardTitle className="text-xl">{currentTopicTitle}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-6">
+                <div className="flex items-center gap-3">
+                  <Checkbox id="use-timer" checked={useTimer} onCheckedChange={(val) => setUseTimer(Boolean(val))} />
+                  <Label htmlFor="use-timer">Use 20s timer per question</Label>
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  {useTimer ? "You will have 20 seconds for each question." : "No time limit will be applied."}
+                </div>
+                <div className="flex gap-3">
+                  <Button variant="outline" asChild>
+                    <Link to="/topics">Cancel</Link>
+                  </Button>
+                  <Button className="bg-quiz-primary hover:bg-quiz-primary/90" onClick={handleStart}>
+                    Start Quiz
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background">
       {/* Navigation */}
@@ -267,6 +375,11 @@ const Quiz = () => {
             <span className="text-sm text-muted-foreground">
               Question {currentQuestionIndex + 1} of {questions.length}
             </span>
+            {useTimer && (
+              <span className="text-sm font-medium">
+                {timeLeft}s left
+              </span>
+            )}
           </div>
         </div>
       </nav>
@@ -326,7 +439,10 @@ const Quiz = () => {
           <div className="flex justify-between mt-6">
             <Button
               onClick={handlePrevious}
-              disabled={currentQuestionIndex === 0}
+              disabled={
+                currentQuestionIndex === 0 ||
+                (useTimer && timedOutQuestionIds.has(questions[currentQuestionIndex - 1]?.id))
+              }
               variant="outline"
             >
               Previous

@@ -12,6 +12,7 @@ import Dashboard from "./pages/Dashboard";
 import Topics from "./pages/Topics";
 import Quiz from "./pages/Quiz";
 import Admin from "./pages/Admin";
+import SuperAdmin from "./pages/SuperAdmin";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 
@@ -44,8 +45,13 @@ const App = () => (
               </ProtectedRoute>
             } />
             <Route path="/admin" element={
-              <ProtectedRoute requireAdmin={true}>
+              <ProtectedRoute allowedRoles={['admin','quiz_manager']}>
                 <Admin />
+              </ProtectedRoute>
+            } />
+            <Route path="/super-admin" element={
+              <ProtectedRoute allowedRoles={['admin']}>
+                <SuperAdmin />
               </ProtectedRoute>
             } />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

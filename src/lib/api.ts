@@ -2,9 +2,9 @@ const BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:4000";
 
 type HttpMethod = "GET" | "POST" | "PUT" | "DELETE";
 
-async function request<T>(path: string, options: { method?: HttpMethod; body?: any; userId?: number } = {}): Promise<T> {
-	const headers: Record<string, string> = { "Content-Type": "application/json" };
-	if (options.userId) headers["x-user-id"] = String(options.userId);
+async function request<T>(path: string, options: { method?: HttpMethod; body?: any; userId?: number | null } = {}): Promise<T> {
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (options.userId !== undefined && options.userId !== null) headers["x-user-id"] = String(options.userId);
 
 	const res = await fetch(`${BASE_URL}${path}`, {
 		method: options.method || "GET",
@@ -32,8 +32,8 @@ async function request<T>(path: string, options: { method?: HttpMethod; body?: a
 
 export const api = {
 	auth: {
-		signup: (email: string, password: string, role?: 'admin' | 'user') => request<{ ok: true; role: 'admin' | 'user' }>(`/api/auth/signup`, { method: "POST", body: { email, password, role } }),
-		login: (email: string, password: string) => request<{ userId: number; email: string; role: 'admin' | 'user' }>(`/api/auth/login`, { method: "POST", body: { email, password } }),
+		signup: (email: string, password: string, role?: 'admin' | 'quiz_manager' | 'user') => request<{ ok: true; role: 'admin' | 'quiz_manager' | 'user' }>(`/api/auth/signup`, { method: "POST", body: { email, password, role } }),
+		login: (email: string, password: string) => request<{ userId: number; email: string; role: 'admin' | 'quiz_manager' | 'user' }>(`/api/auth/login`, { method: "POST", body: { email, password } }),
 	},
 	topics: {
 		list: () => request<any[]>(`/api/topics`),
@@ -56,6 +56,17 @@ export const api = {
 	results: {
 		listMine: (userId: number) => request<any[]>(`/api/results`, { method: "GET", userId }),
 		save: (userId: number, topic_id: number, score: number, total_questions: number) => request<unknown>(`/api/results`, { method: "POST", body: { topic_id, score, total_questions }, userId }),
+	},
+	users: {
+		listAll: (userId: number) => request<any[]>(`/api/users`, { method: "GET", userId }),
+		remove: (id: number, userId: number) => request<unknown>(`/api/users/${id}`, { method: "DELETE", userId }),
+	},
+	admin: {
+		results: {
+			listAll: (userId: number) => request<any[]>(`/api/admin/results`, { method: "GET", userId }),
+			remove: (id: number, userId: number) => request<unknown>(`/api/admin/results/${id}`, { method: "DELETE", userId }),
+		},
+		stats: (userId: number) => request<{ usersCount: number; resultsCount: number; topicsCount: number; averageScorePercent: number; byUser: any[]; byTopic: any[] }>(`/api/admin/stats`, { method: "GET", userId }),
 	},
 };
 
