@@ -8,6 +8,7 @@ import { api } from "@/lib/api";
 import { ArrowLeft, Trash2, RefreshCw } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import jsPDF from "jspdf";
 
 const SuperAdmin = () => {
   const { user } = useAuth();
@@ -76,11 +77,60 @@ const SuperAdmin = () => {
     }
   };
 
+  // Add these state hooks:
+  const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
+  const selectedUser = users.find(u => u.id === selectedUserId);
+
+  // New: fetch a given user's results
+  async function fetchResultsForUser(userId: number) {
+    const rows = await api.admin.results.listAll(user.id);
+    return (rows || []).filter((r: any) => r.user_id === userId);
+  }
+
+  async function handleDownloadUserPDF() {
+    if (!selectedUserId) return;
+    const userData = users.find(u => u.id === selectedUserId);
+    if (!userData) return;
+    let userResults: any[] = await fetchResultsForUser(selectedUserId);
+    let topics: string[] = [];
+    if (userResults.length > 0) topics = Array.from(new Set(userResults.map(r => r.topic_title)));
+    const doc = new jsPDF();
+    doc.setFontSize(18);
+    doc.text('QuizGrad User Stats', 20, 20);
+    doc.setFontSize(12);
+    doc.text(`Username: ${userData.email}`, 20, 30);
+    doc.text(`Role: ${userData.role}`, 20, 38);
+    doc.text(`Total Quizzes Taken: ${userResults.length}`, 20, 46);
+    const averageScore = userResults.length ? Math.round(userResults.reduce((sum, r) => sum + (r.score/r.total_questions)*100, 0)/userResults.length) : 0;
+    doc.text(`Average Score: ${averageScore}%`, 20, 54);
+    doc.text(' ', 20, 62);
+    doc.text('Quiz Results:', 20, 70);
+    let y = 80;
+    if (!userResults.length) {
+      doc.text('No quizzes taken yet.', 20, y);
+    } else {
+      doc.setFontSize(11);
+      doc.text('Date', 20, y);
+      doc.text('Topic', 55, y);
+      doc.text('Score', 130, y);
+      y += 8;
+      userResults.forEach(result => {
+        const pct = Math.round((result.score/result.total_questions)*100);
+        doc.text((new Date(result.taken_at).toLocaleDateString()), 20, y);
+        doc.text(result.topic_title || 'Unknown', 55, y);
+        doc.text(`${result.score}/${result.total_questions} (${pct}%)`, 130, y);
+        y += 8;
+        if (y > 270) { doc.addPage(); y = 20; }
+      });
+    }
+    doc.save(`quizgrad_stats_user${userData.id}.pdf`);
+  }
+
   return (
     <div className="min-h-screen bg-background">
-      <nav className="border-b bg-card">
+      <nav className="border-b bg-card sticky top-0 z-50">
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-          <Button asChild variant="ghost">
+          <Button asChild className="bg-quiz-primary hover:bg-quiz-primary/90">
             <Link to="/dashboard">
               <ArrowLeft className="mr-2 h-4 w-4" />
               Back to Dashboard
@@ -96,6 +146,27 @@ const SuperAdmin = () => {
       </nav>
 
       <div className="container mx-auto px-4 py-8">
+        {(user.role === 'admin' && user.id === 0) && (
+          <div className="mb-6 flex gap-6 items-end">
+            <div>
+              <label className="block mb-2 text-sm font-medium">Pick a user:</label>
+              <select
+                value={selectedUserId ?? ''}
+                onChange={e => setSelectedUserId(Number(e.target.value))}
+                className="border p-2 rounded"
+              >
+                <option value='' disabled>Select user</option>
+                {users.map(u => (
+                  <option key={u.id} value={u.id}>{u.email} ({u.role})</option>
+                ))}
+              </select>
+            </div>
+            <Button onClick={handleDownloadUserPDF} disabled={!selectedUserId} className="bg-quiz-primary hover:bg-quiz-primary/90">
+              Download User's Stats PDF
+            </Button>
+          </div>
+        )}
+
         <Tabs defaultValue="users" className="max-w-5xl mx-auto">
           <TabsList className="mb-4">
             <TabsTrigger value="users">Users</TabsTrigger>

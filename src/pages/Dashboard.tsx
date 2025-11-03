@@ -8,6 +8,7 @@ import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { Trophy, BookOpen, Clock, Target, Settings, RefreshCw } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import jsPDF from "jspdf";
 
 const Dashboard = () => {
   const { user, logout } = useAuth();
@@ -64,7 +65,7 @@ const Dashboard = () => {
         loadData();
       }
     };
-    
+
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, [user.id]);
@@ -73,10 +74,45 @@ const Dashboard = () => {
   const totalQuestions = userResults.reduce((sum, result) => sum + result.total_questions, 0);
   const averageScore = totalQuestions > 0 ? Math.round((totalScore / totalQuestions) * 100) : 0;
 
+  // PDF generation
+  const handleDownloadPDF = () => {
+    const doc = new jsPDF();
+    doc.setFontSize(18);
+    doc.text('QuizGrad User Stats', 20, 20);
+    doc.setFontSize(12);
+  doc.text(`Email: ${user.email}`, 20, 30);
+    doc.text(`Role: ${user.role}`, 20, 38);
+    doc.text(`Total Quizzes Taken: ${totalQuizzes}`, 20, 46);
+    doc.text(`Average Score: ${averageScore}%`, 20, 54);
+
+    doc.text(' ', 20, 62);
+    doc.text('Quiz Results:', 20, 70);
+    let y = 80;
+    if (!userResults.length) {
+      doc.text('No quizzes taken yet.', 20, y);
+    } else {
+      doc.setFontSize(11);
+      doc.text('Date', 20, y);
+      doc.text('Topic', 55, y);
+      doc.text('Score', 130, y);
+      y += 8;
+      userResults.forEach(result => {
+        const topic = topics.find(t => t.id === result.topic_id)?.title || 'Unknown';
+        const pct = Math.round((result.score/result.total_questions)*100);
+        doc.text((new Date(result.taken_at).toLocaleDateString()), 20, y);
+        doc.text(topic, 55, y);
+        doc.text(`${result.score}/${result.total_questions} (${pct}%)`, 130, y);
+        y += 8;
+        if (y > 270) { doc.addPage(); y = 20; }
+      });
+    }
+    doc.save('quizgrad_stats.pdf');
+  };
+
   return (
     <div className="min-h-screen bg-background">
       {/* Navigation */}
-      <nav className="border-b bg-card">
+      <nav className="border-b bg-card sticky top-0 z-50">
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
           <div className="flex items-center gap-4">
             <h1 className="text-2xl font-bold text-quiz-primary">QuizGrad</h1>
@@ -85,8 +121,8 @@ const Dashboard = () => {
             </Badge>
           </div>
           <div className="flex items-center gap-4">
-            <span className="text-sm text-muted-foreground">Welcome, {user.username}</span>
-            <Button asChild variant="outline">
+            <span className="text-sm text-muted-foreground">Welcome, {user.email}</span>
+            <Button asChild className="bg-quiz-primary hover:bg-quiz-primary/90">
               <Link to="/topics">Browse Topics</Link>
             </Button>
             {(user.role === 'admin' || user.role === 'quiz_manager') && (
@@ -96,11 +132,11 @@ const Dashboard = () => {
             )}
             {/* Only super admin (userId 0) can manage users */}
             {user.role === 'admin' && user.id === 0 && (
-              <Button asChild variant="outline">
+              <Button asChild className="bg-quiz-primary hover:bg-quiz-primary/90">
                 <Link to="/super-admin">Manage Users</Link>
               </Button>
             )}
-            <Button onClick={logout} variant="ghost">
+            <Button onClick={logout} className="bg-quiz-primary hover:bg-quiz-primary/90">
               Logout
             </Button>
           </div>
@@ -113,10 +149,15 @@ const Dashboard = () => {
             <h2 className="text-3xl font-bold mb-2">Dashboard</h2>
             <p className="text-muted-foreground">Track your progress and continue learning</p>
           </div>
-          <Button onClick={handleRefreshClick} variant="outline" size="sm" disabled={isRefreshing}>
-            <RefreshCw className={`mr-2 h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-            Refresh
-          </Button>
+          <div className="flex gap-2 items-center">
+            <Button onClick={handleDownloadPDF} variant="outline" size="sm">
+              Download My Stats PDF
+            </Button>
+            <Button onClick={handleRefreshClick} variant="outline" size="sm" disabled={isRefreshing}>
+              <RefreshCw className={`mr-2 h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+              Refresh
+            </Button>
+          </div>
         </div>
 
         {/* Stats Cards */}
@@ -219,7 +260,7 @@ const Dashboard = () => {
                   Browse Quiz Topics
                 </Link>
               </Button>
-              
+
               {(user.role === 'admin' || user.role === 'quiz_manager') && (
                 <>
                   <Button asChild className="w-full justify-start" variant="outline">

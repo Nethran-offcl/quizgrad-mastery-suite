@@ -3,13 +3,15 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 export interface User {
   id: number;
   email: string;
+  username?: string | null;
   role: 'admin' | 'quiz_manager' | 'user';
 }
 
 interface AuthContextType {
   user: User | null;
-  login: (email: string, password: string) => Promise<boolean>;
-  signup: (email: string, password: string, role?: 'admin' | 'quiz_manager' | 'user') => Promise<boolean>;
+  login: (identifier: string, password: string) => Promise<boolean>;
+  signup: (email: string, username: string, password: string, role?: 'admin' | 'quiz_manager' | 'user') => Promise<boolean>;
+  setAuthUser: (u: User) => void;
   logout: () => void;
   isLoading: boolean;
 }
@@ -31,10 +33,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsLoading(false);
   }, []);
 
-  const login = async (email: string, password: string): Promise<boolean> => {
+  const login = async (identifier: string, password: string): Promise<boolean> => {
     try {
-      const result = await api.auth.login(email, password);
-      const loggedUser: User = { id: result.userId, email, role: result.role };
+      const result = await api.auth.login(identifier, password);
+      const loggedUser: User = { id: result.userId, email: result.email, username: result.username, role: result.role };
       setUser(loggedUser);
       localStorage.setItem('quiz_user', JSON.stringify(loggedUser));
       return true;
@@ -44,13 +46,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const signup = async (email: string, password: string, role: 'admin' | 'quiz_manager' | 'user' = 'user'): Promise<boolean> => {
-    await api.auth.signup(email, password, role);
+  const signup = async (email: string, username: string, password: string, role: 'admin' | 'quiz_manager' | 'user' = 'user'): Promise<boolean> => {
+    await api.auth.signup(email, username, password, role);
     const result = await api.auth.login(email, password);
-    const newUser: User = { id: result.userId, email, role: result.role };
+    const newUser: User = { id: result.userId, email: result.email, username: result.username, role: result.role };
     setUser(newUser);
     localStorage.setItem('quiz_user', JSON.stringify(newUser));
     return true;
+  };
+
+  const setAuthUser = (u: User) => {
+    setUser(u);
+    localStorage.setItem('quiz_user', JSON.stringify(u));
   };
 
   const logout = () => {
@@ -59,7 +66,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <AuthContext.Provider value={{ user, login, signup, logout, isLoading }}>
+    <AuthContext.Provider value={{ user, login, signup, setAuthUser, logout, isLoading }}>
       {children}
     </AuthContext.Provider>
   );

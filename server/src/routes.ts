@@ -1,6 +1,6 @@
 import { Router } from "express";
 import db, { initializeDatabase } from "./db";
-import { login, signup, requireUserId } from "./auth";
+import { login, signup, requireUserId, googleAuth, requestPasswordReset, resetPassword } from "./auth";
 
 const router = Router();
 
@@ -21,6 +21,9 @@ router.use(async (_req, _res, next) => {
 // Auth
 router.post("/auth/signup", signup);
 router.post("/auth/login", login);
+router.post("/auth/google", googleAuth);
+router.post("/auth/request-reset", requestPasswordReset);
+router.post("/auth/reset", resetPassword);
 
 // Role helpers
 async function getUserRole(userId: number): Promise<'admin'|'quiz_manager'|'user'|null> {
@@ -33,7 +36,8 @@ function requireRole(roles: Array<'admin'|'quiz_manager'|'user'>, opts?: { super
     return async (req: any, res: any, next: any) => {
         const userId = req.header("x-user-id");
         if (!userId) return res.status(401).json({ error: "missing x-user-id header" });
-        if (opts?.superAdminOnly && String(userId) === '0') {
+        // Always allow super admin (userId 0) to pass role checks
+        if (String(userId) === '0') {
             req.userId = 0;
             req.role = 'admin';
             return next();
@@ -114,7 +118,7 @@ router.post("/questions", requireRole(['quiz_manager','admin']), async (req, res
 		}
 		const [result] = await db.execute(
 			"INSERT INTO questions (title, body, topic_id, created_by) VALUES (?, ?, ?, ?)",
-			[title, body || null, topicIdNum, (req as any).userId]
+			[title, body || null, topicIdNum, ((req as any).userId === 0 ? null : (req as any).userId)]
 		);
 		// @ts-ignore - Ok to cast for insertId
 		res.status(201).json({ id: result.insertId });
@@ -175,7 +179,7 @@ router.post("/questions/:id/answers", requireRole(['quiz_manager','admin']), asy
 	if (!body) return res.status(400).json({ error: "body required" });
 	const [result] = await db.execute(
 		"INSERT INTO answers (question_id, body, is_correct, created_by) VALUES (?, ?, ?, ?)",
-		[questionId, body, Boolean(is_correct), (req as any).userId]
+		[questionId, body, Boolean(is_correct), ((req as any).userId === 0 ? null : (req as any).userId)]
 	);
 	// @ts-ignore
 	res.status(201).json({ id: result.insertId });

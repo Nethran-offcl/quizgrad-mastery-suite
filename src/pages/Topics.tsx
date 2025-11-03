@@ -103,28 +103,28 @@ const Topics = () => {
   return (
     <div className="min-h-screen bg-background">
       {/* Navigation */}
-      <nav className="border-b bg-card">
+      <nav className="border-b bg-card sticky top-0 z-50">
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
           <div className="flex items-center gap-4">
+            <Button asChild className="bg-quiz-primary hover:bg-quiz-primary/90">
+              <Link to="/dashboard">
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Dashboard
+              </Link>
+            </Button>
             <h1 className="text-2xl font-bold text-quiz-primary">QuizGrad</h1>
             <Badge variant={user.role === 'admin' ? 'default' : user.role === 'quiz_manager' ? 'default' : 'secondary'}>
               {user.role === 'admin' ? 'Admin' : user.role === 'quiz_manager' ? 'Quiz Manager' : 'User'}
             </Badge>
           </div>
           <div className="flex items-center gap-4">
-            <span className="text-sm text-muted-foreground">Welcome, {user.username}</span>
-            <Button asChild variant="outline">
-              <Link to="/dashboard">
-                <ArrowLeft className="mr-2 h-4 w-4" />
-                Dashboard
-              </Link>
-            </Button>
+            <span className="text-sm text-muted-foreground">Welcome, {user.email}</span>
             {(user.role === 'admin' || user.role === 'quiz_manager') && (
               <Button asChild className="bg-quiz-primary hover:bg-quiz-primary/90">
                 <Link to="/admin">Admin Panel</Link>
               </Button>
             )}
-            <Button onClick={logout} variant="ghost">
+            <Button onClick={logout} className="bg-quiz-primary hover:bg-quiz-primary/90">
               Logout
             </Button>
           </div>

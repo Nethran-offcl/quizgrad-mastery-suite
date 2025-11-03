@@ -170,7 +170,7 @@ const Quiz = () => {
   );
   if (notFound) return (
     <div className="min-h-screen bg-background">
-      <nav className="border-b bg-card">
+      <nav className="border-b bg-card sticky top-0 z-50">
         <div className="container mx-auto px-4 py-4">
           <Button asChild variant="ghost">
             <Link to="/topics">
@@ -239,7 +239,7 @@ const Quiz = () => {
   if (showResults) {
     return (
       <div className="min-h-screen bg-background">
-        <nav className="border-b bg-card">
+        <nav className="border-b bg-card sticky top-0 z-50">
           <div className="container mx-auto px-4 py-4">
             <Button asChild variant="ghost">
               <Link to="/topics">
@@ -362,7 +362,7 @@ const Quiz = () => {
   return (
     <div className="min-h-screen bg-background">
       {/* Navigation */}
-      <nav className="border-b bg-card">
+      <nav className="border-b bg-card sticky top-0 z-50">
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
           <Button asChild variant="ghost">
             <Link to="/topics">

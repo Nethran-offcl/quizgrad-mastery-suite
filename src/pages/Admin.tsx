@@ -43,7 +43,7 @@ const Admin = () => {
     navigate('/login');
     return null;
   }
-  if (user.role !== 'admin') {
+  if (user.role !== 'admin' && user.role !== 'quiz_manager') {
     navigate('/dashboard');
     return null;
   }
@@ -224,20 +224,19 @@ const Admin = () => {
   return (
     <div className="min-h-screen bg-background">
       {/* Navigation */}
-      <nav className="border-b bg-card">
+      <nav className="border-b bg-card sticky top-0 z-50">
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
           <div className="flex items-center gap-4">
-            <h1 className="text-2xl font-bold text-quiz-primary">QuizGrad Admin</h1>
-            <Badge>Admin Panel</Badge>
-          </div>
-          <div className="flex items-center gap-4">
-            <Button asChild variant="outline">
+            <Button asChild className="bg-quiz-primary hover:bg-quiz-primary/90">
               <Link to="/dashboard">
                 <ArrowLeft className="mr-2 h-4 w-4" />
                 Dashboard
               </Link>
             </Button>
+            <h1 className="text-2xl font-bold text-quiz-primary">QuizGrad Admin</h1>
+            <Badge>Admin Panel</Badge>
           </div>
+          <div className="flex items-center gap-4" />
         </div>
       </nav>
 
@@ -475,48 +474,113 @@ const Admin = () => {
                     
                     return (
                       <div key={question.id} className="border rounded-lg p-4">
-                        <div className="flex justify-between items-start mb-3">
-                          <div className="flex-1">
-                            <Badge variant="outline" className="mb-2">
-                              {topic?.title || 'Unknown Topic'}
-                            </Badge>
-                            <h3 className="font-medium">{question.question_text}</h3>
-                          </div>
-                          <div className="flex gap-2">
-                            <Button
-                              onClick={() => setEditingQuestion(question)}
-                              size="sm"
-                              variant="outline"
-                            >
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              onClick={() => handleDeleteQuestion(question.id)}
-                              size="sm"
-                              variant="destructive"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </div>
-                        
-                        <div className="grid md:grid-cols-2 gap-2 text-sm">
-                          {[1, 2, 3, 4].map((optionNum) => (
-                            <div 
-                              key={optionNum}
-                              className={`p-2 rounded ${
-                                question.correct_option === optionNum 
-                                  ? 'bg-quiz-success/10 border border-quiz-success/20' 
-                                  : 'bg-muted'
-                              }`}
-                            >
-                              {optionNum}. {question[`option${optionNum}` as keyof Question] as string}
-                              {question.correct_option === optionNum && (
-                                <Badge variant="default" className="ml-2 text-xs">Correct</Badge>
-                              )}
+                        {editingQuestion?.id === question.id ? (
+                          <div className="space-y-4">
+                            <div className="grid md:grid-cols-2 gap-4">
+                              <div className="space-y-2 md:col-span-2">
+                                <Label>Question Text</Label>
+                                <Textarea
+                                  value={editingQuestion.question_text}
+                                  onChange={(e) => setEditingQuestion(prev => prev ? { ...prev, question_text: e.target.value } : prev)}
+                                  placeholder="Enter question"
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <Label>Option 1</Label>
+                                <Input
+                                  value={editingQuestion.option1}
+                                  onChange={(e) => setEditingQuestion(prev => prev ? { ...prev, option1: e.target.value } : prev)}
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <Label>Option 2</Label>
+                                <Input
+                                  value={editingQuestion.option2}
+                                  onChange={(e) => setEditingQuestion(prev => prev ? { ...prev, option2: e.target.value } : prev)}
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <Label>Option 3</Label>
+                                <Input
+                                  value={editingQuestion.option3}
+                                  onChange={(e) => setEditingQuestion(prev => prev ? { ...prev, option3: e.target.value } : prev)}
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <Label>Option 4</Label>
+                                <Input
+                                  value={editingQuestion.option4}
+                                  onChange={(e) => setEditingQuestion(prev => prev ? { ...prev, option4: e.target.value } : prev)}
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <Label>Correct Answer</Label>
+                                <Select 
+                                  value={editingQuestion.correct_option.toString()}
+                                  onValueChange={(value) => setEditingQuestion(prev => prev ? { ...prev, correct_option: parseInt(value) as 1 | 2 | 3 | 4 } : prev)}
+                                >
+                                  <SelectTrigger>
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="1">Option 1</SelectItem>
+                                    <SelectItem value="2">Option 2</SelectItem>
+                                    <SelectItem value="3">Option 3</SelectItem>
+                                    <SelectItem value="4">Option 4</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
                             </div>
-                          ))}
-                        </div>
+                            <div className="flex gap-2">
+                              <Button onClick={handleUpdateQuestion} size="sm">Save</Button>
+                              <Button onClick={() => setEditingQuestion(null)} variant="outline" size="sm">Cancel</Button>
+                            </div>
+                          </div>
+                        ) : (
+                          <>
+                            <div className="flex justify-between items-start mb-3">
+                              <div className="flex-1">
+                                <Badge variant="outline" className="mb-2">
+                                  {topic?.title || 'Unknown Topic'}
+                                </Badge>
+                                <h3 className="font-medium">{question.question_text}</h3>
+                              </div>
+                              <div className="flex gap-2">
+                                <Button
+                                  onClick={() => setEditingQuestion(question)}
+                                  size="sm"
+                                  variant="outline"
+                                >
+                                  <Edit className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  onClick={() => handleDeleteQuestion(question.id)}
+                                  size="sm"
+                                  variant="destructive"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            </div>
+                            <div className="grid md:grid-cols-2 gap-2 text-sm">
+                              {[1, 2, 3, 4].map((optionNum) => (
+                                <div 
+                                  key={optionNum}
+                                  className={`p-2 rounded ${
+                                    question.correct_option === optionNum 
+                                      ? 'bg-quiz-success/10 border border-quiz-success/20' 
+                                      : 'bg-muted'
+                                  }`}
+                                >
+                                  {optionNum}. {question[`option${optionNum}` as keyof Question] as string}
+                                  {question.correct_option === optionNum && (
+                                    <Badge variant="default" className="ml-2 text-xs">Correct</Badge>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          </>
+                        )}
                       </div>
                     );
                   })}

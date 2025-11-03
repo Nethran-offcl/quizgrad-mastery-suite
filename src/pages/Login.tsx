@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -7,12 +7,13 @@ import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
+import { api } from "@/lib/api";
 
 const Login = () => {
-  const [username, setUsername] = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const { login } = useAuth();
+  const { login, setAuthUser } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -21,7 +22,7 @@ const Login = () => {
     setIsLoading(true);
 
     try {
-      const success = await login(username, password);
+  const success = await login(identifier, password);
       if (success) {
         toast({
           title: "Welcome back!",
@@ -46,6 +47,46 @@ const Login = () => {
     }
   };
 
+  const googleDivRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    // Initialize Google Identity Services with FedCM and render a Sign-In button
+    // @ts-ignore
+    const google = (window as any).google;
+    const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+    if (!clientId) return; // handled via UI; don't throw here
+    if (!google?.accounts?.id) return;
+    try {
+      google.accounts.id.initialize({
+        client_id: clientId,
+        callback: async (resp: any) => {
+          try {
+            if (!resp?.credential) throw new Error("No Google credential returned");
+            const res = await api.auth.google(resp.credential);
+            toast({ title: "Signed in with Google" });
+            setAuthUser({ id: res.userId, email: res.email, username: res.username, role: res.role });
+            navigate("/dashboard");
+          } catch (e: any) {
+            toast({ title: "Google sign-in failed", description: e?.message || String(e), variant: "destructive" });
+          }
+        },
+        use_fedcm_for_prompt: true,
+      });
+      if (googleDivRef.current) {
+        google.accounts.id.renderButton(googleDivRef.current, {
+          theme: "filled_blue",
+          size: "large",
+          shape: "pill",
+          text: "signin_with",
+        });
+      }
+      // Optionally also trigger One Tap; if suppressed, the button is still available
+      google.accounts.id.prompt();
+    } catch {
+      // ignore initialization errors here; UI will show fallback guidance
+    }
+  }, [login, navigate, toast]);
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <div className="w-full max-w-md">
@@ -59,12 +100,12 @@ const Login = () => {
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="username">Email</Label>
+                <Label htmlFor="identifier">Username or Email</Label>
                 <Input
-                  id="username"
+                  id="identifier"
                   type="text"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
+                  value={identifier}
+                  onChange={(e) => setIdentifier(e.target.value)}
                   required
                 />
               </div>
@@ -86,6 +127,9 @@ const Login = () => {
                 {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Sign In
               </Button>
+              <div className="mt-3 flex justify-center">
+                <div ref={googleDivRef} />
+              </div>
             </form>
             
             <div className="mt-4 text-center text-sm">
@@ -96,9 +140,12 @@ const Login = () => {
                 </Link>
               </p>
               <p className="mt-2 text-muted-foreground">
-                <Link to="/" className="text-quiz-primary hover:underline">
-                  Back to home
-                </Link>
+                <button type="button" className="text-quiz-primary hover:underline" onClick={() => {
+                  const email = prompt('Enter your account email');
+                  if (!email) return;
+                  api.auth.requestReset(email).then(() => toast({ title: 'Password reset email sent (if account exists)' }))
+                    .catch((e:any) => toast({ title: 'Failed to send reset email', description: e?.message, variant: 'destructive' }));
+                }}>Forgot password?</button>
               </p>
             </div>
 

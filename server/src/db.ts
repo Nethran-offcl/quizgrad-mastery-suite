@@ -24,17 +24,25 @@ export async function initializeDatabase(): Promise<void> {
 
 		await connection.query(`CREATE TABLE IF NOT EXISTS users (
 			id INT AUTO_INCREMENT PRIMARY KEY,
+			username VARCHAR(50) NULL UNIQUE,
 			email VARCHAR(255) NOT NULL UNIQUE,
-			password_hash VARBINARY(255) NOT NULL,
-			salt VARBINARY(255) NOT NULL,
+			password_hash VARBINARY(255) NULL,
+			salt VARBINARY(255) NULL,
 			role ENUM('admin','quiz_manager','user') NOT NULL DEFAULT 'user',
+			reset_token VARCHAR(255) NULL,
+			reset_expires DATETIME NULL,
 			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 		)`);
 
 		// Ensure ENUM includes new roles in case table already existed
-		try {
-			await connection.query("ALTER TABLE users MODIFY role ENUM('admin','quiz_manager','user') NOT NULL DEFAULT 'user'");
-		} catch {}
+		try { await connection.query("ALTER TABLE users MODIFY role ENUM('admin','quiz_manager','user') NOT NULL DEFAULT 'user'"); } catch {}
+		// Add username column if missing and ensure unique index
+		try { await connection.query("ALTER TABLE users ADD COLUMN username VARCHAR(50) NULL"); } catch {}
+		try { await connection.query("CREATE UNIQUE INDEX idx_users_username ON users (username)"); } catch {}
+		try { await connection.query("ALTER TABLE users MODIFY password_hash VARBINARY(255) NULL"); } catch {}
+		try { await connection.query("ALTER TABLE users MODIFY salt VARBINARY(255) NULL"); } catch {}
+		try { await connection.query("ALTER TABLE users ADD COLUMN reset_token VARCHAR(255) NULL"); } catch {}
+		try { await connection.query("ALTER TABLE users ADD COLUMN reset_expires DATETIME NULL"); } catch {}
 
 		await connection.query(`CREATE TABLE IF NOT EXISTS questions (
 			id INT AUTO_INCREMENT PRIMARY KEY,

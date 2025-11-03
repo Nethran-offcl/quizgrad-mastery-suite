@@ -32,8 +32,11 @@ async function request<T>(path: string, options: { method?: HttpMethod; body?: a
 
 export const api = {
 	auth: {
-		signup: (email: string, password: string, role?: 'admin' | 'quiz_manager' | 'user') => request<{ ok: true; role: 'admin' | 'quiz_manager' | 'user' }>(`/api/auth/signup`, { method: "POST", body: { email, password, role } }),
-		login: (email: string, password: string) => request<{ userId: number; email: string; role: 'admin' | 'quiz_manager' | 'user' }>(`/api/auth/login`, { method: "POST", body: { email, password } }),
+		signup: (email: string, username: string, password: string, role?: 'admin' | 'quiz_manager' | 'user') => request<{ ok: true; role: 'admin' | 'quiz_manager' | 'user' }>(`/api/auth/signup`, { method: "POST", body: { email, username, password, role } }),
+		login: (identifier: string, password: string) => request<{ userId: number; email: string; username: string | null; role: 'admin' | 'quiz_manager' | 'user' }>(`/api/auth/login`, { method: "POST", body: { identifier, password } }),
+			google: (idToken: string) => request<{ userId: number; email: string; username: string | null; role: 'admin' | 'quiz_manager' | 'user' }>(`/api/auth/google`, { method: "POST", body: { idToken } }),
+			requestReset: (email: string) => request<{ ok: true }>(`/api/auth/request-reset`, { method: "POST", body: { email } }),
+			reset: (token: string, password: string) => request<{ ok: true }>(`/api/auth/reset`, { method: "POST", body: { token, password } }),
 	},
 	topics: {
 		list: () => request<any[]>(`/api/topics`),
