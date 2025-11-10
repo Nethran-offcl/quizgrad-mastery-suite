@@ -1,73 +1,152 @@
-# Welcome to your Lovable project
+🧠 QuizGrad
 
-## Project info
+An intelligent, modern quiz and learning mastery platform built with React + TypeScript (frontend) and Express.js (backend) — designed to enhance learning through quizzes, progress tracking, and personalized feedback.
 
-**URL**: https://lovable.dev/projects/e6d4e877-5854-409b-8cd9-8b817c5652b5
+🚀 Overview
 
-## How can I edit this code?
+QuizGrad Mastery Suite is a web-based application that allows users to:
 
-There are several ways of editing your application.
+Take quizzes on various subjects.
 
-**Use Lovable**
+Track progress and performance.
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/e6d4e877-5854-409b-8cd9-8b817c5652b5) and start prompting.
+View analytics and mastery insights.
 
-Changes made via Lovable will be committed automatically to this repo.
+Experience smooth UI/UX with modern animations and responsive design.
 
-**Use your preferred IDE**
+Built with scalability, modularity, and developer experience in mind — using Vite, Tailwind CSS, and ShadCN/UI components for a clean, maintainable frontend, and Express + TypeScript for the backend API.
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+🧩 Tech Stack
+Frontend
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+⚛️ React + TypeScript
 
-Follow these steps:
+⚡ Vite (for blazing fast builds)
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+🎨 Tailwind CSS
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+🧱 ShadCN/UI components
 
-# Step 3: Install the necessary dependencies.
-npm i
+🌙 Dark/Light Theme Toggle
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
+🔐 Protected Routes (Authentication integrated)
+
+Backend
+
+🧠 Express.js + TypeScript
+
+🗄️ Database integration (configured in server/src/db.ts)
+
+🔑 Authentication logic (JWT/session handling in server/src/auth.ts)
+
+📡 RESTful APIs (defined in server/src/routes.ts)
+
+🛠️ Project Structure
+quizgrad-mastery-suite/
+├── src/                     # Frontend source (React + TS)
+│   ├── components/          # Reusable UI and functional components
+│   ├── App.tsx              # Root React component
+│   ├── main.tsx             # Entry point
+│   └── styles, assets...    # Global CSS, icons, etc.
+│
+├── server/                  # Backend (Express)
+│   ├── src/
+│   │   ├── index.ts         # Entry point for backend server
+│   │   ├── auth.ts          # Authentication middleware
+│   │   ├── db.ts            # Database configuration
+│   │   ├── routes.ts        # API route definitions
+│   │   └── types.ts         # Shared TypeScript types
+│   └── package.json         # Backend dependencies
+│
+├── public/                  # Static files (favicon, robots.txt, etc.)
+├── package.json             # Frontend dependencies
+├── vite.config.ts           # Frontend Vite configuration
+└── tailwind.config.ts       # Tailwind customization
+
+⚙️ Installation & Setup
+1. Clone the repository
+git clone https://github.com/<your-username>/quizgrad-mastery-suite.git
+cd quizgrad-mastery-suite
+
+2. Install dependencies
+npm install
+
+3. Setup backend
+cd server
+npm install
 npm run dev
-```
 
-**Edit a file directly in GitHub**
+4. Run frontend
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+Open another terminal in the root folder:
 
-**Use GitHub Codespaces**
+npm run dev
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+5. Access the app
 
-## What technologies are used for this project?
+Open your browser and go to:
+👉 http://localhost:5173
 
-This project is built with:
+🧰 Available Scripts
+Command	Description
+npm run dev	Starts the frontend in development mode
+npm run build	Builds the production-ready frontend
+npm run lint	Runs ESLint checks
+npm run preview	Previews the production build locally
+cd server && npm run dev	Runs backend server in watch mode
+🔒 Environment Variables
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+Create a .env file inside the server/ directory with the following fields:
 
-## How can I deploy this project?
+PORT=5000
+JWT_SECRET=your-secret-key
+DATABASE_URL=your-database-url
 
-Simply open [Lovable](https://lovable.dev/projects/e6d4e877-5854-409b-8cd9-8b817c5652b5) and click on Share -> Publish.
+🎯 Key Features
 
-## Can I connect a custom domain to my Lovable project?
+✅ User authentication & protected routes
+✅ Fully responsive UI with light/dark mode
+✅ Modular quiz and result tracking system
+✅ REST API for backend integration
+✅ Modern developer experience (Vite + TypeScript)
+✅ Easy extensibility for adding subjects or quiz types
 
-Yes, you can!
+🧑‍💻 Development Notes
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+Type Safety: The entire codebase uses TypeScript for reliable development.
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+Code Style: ESLint and Prettier are configured for consistent code formatting.
+
+UI: Built using Tailwind CSS and ShadCN/UI for elegant and consistent design.
+
+📦 Deployment
+
+To build for production:
+
+npm run build
+
+
+This generates optimized static files in the dist/ folder.
+
+For backend deployment, ensure your environment variables are set and deploy the Express server via Render, Vercel, or Railway.
+
+🤝 Contributing
+
+Contributions are welcome!
+Please fork the repository, make your changes, and submit a pull request.
+
+📜 License
+
+This project is licensed under the MIT License.
+
+🌟 Acknowledgements
+
+Vite
+
+Tailwind CSS
+
+ShadCN/UI
+
+Express.js
+
+TypeScript
