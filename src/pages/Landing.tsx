@@ -2,10 +2,15 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Link } from "react-router-dom";
 import { BookOpen, Users, Award, TrendingUp } from "lucide-react";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 const Landing = () => {
   return (
     <div className="min-h-screen bg-background">
+      {/* Theme Toggle */}
+      <div className="absolute top-4 right-4 z-10">
+        <ThemeToggle />
+      </div>
       {/* Hero Section */}
       <div className="relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-quiz-primary/10 to-primary/5" />
@@ -99,6 +104,47 @@ const Landing = () => {
           </Button>
         </div>
       </div>
+
+      {/* Footer */}
+      <footer className="relative border-t mt-20 overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-br from-quiz-primary/10 to-primary/5" />
+        <div className="relative container mx-auto px-4 py-8">
+          <div className="grid md:grid-cols-3 gap-8 mb-8">
+            <div>
+              <h4 className="font-semibold text-lg mb-4">QuizGrad</h4>
+              <p className="text-muted-foreground text-sm">
+                Test your knowledge, track your progress, and master new skills with our comprehensive quiz platform.
+              </p>
+            </div>
+            <div>
+              <h4 className="font-semibold text-lg mb-4">Quick Links</h4>
+              <ul className="space-y-2 text-sm">
+                <li>
+                  <Link to="/login" className="text-muted-foreground hover:text-quiz-primary transition-colors">
+                    Login
+                  </Link>
+                </li>
+                <li>
+                  <Link to="/signup" className="text-muted-foreground hover:text-quiz-primary transition-colors">
+                    Sign Up
+                  </Link>
+                </li>
+              </ul>
+            </div>
+            <div>
+              <h4 className="font-semibold text-lg mb-4">Contact</h4>
+              <p className="text-muted-foreground text-sm">
+                For support and inquiries, please reach out through your account dashboard.
+              </p>
+            </div>
+          </div>
+          <div className="border-t pt-6 text-center text-sm text-muted-foreground">
+            <p>
+              © {new Date().getFullYear()} QuizGrad. All rights reserved.
+            </p>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 };

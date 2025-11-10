@@ -11,6 +11,8 @@ import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Clock, CheckCircle, XCircle } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 const Quiz = () => {
   const { topicId } = useParams<{ topicId: string }>();
@@ -32,6 +34,7 @@ const Quiz = () => {
   // Timer & start controls
   const [hasStarted, setHasStarted] = useState(false);
   const [useTimer, setUseTimer] = useState(false);
+  const [timerDuration, setTimerDuration] = useState<number>(20);
   const [timeLeft, setTimeLeft] = useState(20);
   const timerRef = useRef<number | null>(null);
   const [timedOutQuestionIds, setTimedOutQuestionIds] = useState<Set<number>>(new Set());
@@ -131,8 +134,8 @@ const Quiz = () => {
   useEffect(() => {
     if (!hasStarted) return;
     if (!useTimer) return;
-    setTimeLeft(20);
-  }, [currentQuestionIndex, hasStarted, useTimer]);
+    setTimeLeft(timerDuration);
+  }, [currentQuestionIndex, hasStarted, useTimer, timerDuration]);
 
   // Tick timer when running
   useEffect(() => {
@@ -171,13 +174,14 @@ const Quiz = () => {
   if (notFound) return (
     <div className="min-h-screen bg-background">
       <nav className="border-b bg-card sticky top-0 z-50">
-        <div className="container mx-auto px-4 py-4">
+        <div className="container mx-auto px-4 py-4 flex justify-between items-center">
           <Button asChild variant="ghost">
             <Link to="/topics">
               <ArrowLeft className="mr-2 h-4 w-4" />
               Back to Topics
             </Link>
           </Button>
+          <ThemeToggle />
         </div>
       </nav>
       <div className="container mx-auto px-4 py-8 text-center text-muted-foreground">
@@ -194,7 +198,7 @@ const Quiz = () => {
 
   const handleStart = () => {
     setHasStarted(true);
-    if (useTimer) setTimeLeft(20);
+    if (useTimer) setTimeLeft(timerDuration);
   };
 
   const handleAnswerSelect = (optionNumber: number) => {
@@ -240,13 +244,14 @@ const Quiz = () => {
     return (
       <div className="min-h-screen bg-background">
         <nav className="border-b bg-card sticky top-0 z-50">
-          <div className="container mx-auto px-4 py-4">
+          <div className="container mx-auto px-4 py-4 flex justify-between items-center">
             <Button asChild variant="ghost">
               <Link to="/topics">
                 <ArrowLeft className="mr-2 h-4 w-4" />
                 Back to Topics
               </Link>
             </Button>
+            <ThemeToggle />
           </div>
         </nav>
 
@@ -320,13 +325,14 @@ const Quiz = () => {
     return (
       <div className="min-h-screen bg-background">
         <nav className="border-b bg-card">
-          <div className="container mx-auto px-4 py-4">
+          <div className="container mx-auto px-4 py-4 flex justify-between items-center">
             <Button asChild variant="ghost">
               <Link to="/topics">
                 <ArrowLeft className="mr-2 h-4 w-4" />
                 Back to Topics
               </Link>
             </Button>
+            <ThemeToggle />
           </div>
         </nav>
         <div className="container mx-auto px-4 py-8">
@@ -338,10 +344,31 @@ const Quiz = () => {
               <div className="space-y-6">
                 <div className="flex items-center gap-3">
                   <Checkbox id="use-timer" checked={useTimer} onCheckedChange={(val) => setUseTimer(Boolean(val))} />
-                  <Label htmlFor="use-timer">Use 20s timer per question</Label>
+                  <Label htmlFor="use-timer">Use timer per question</Label>
                 </div>
+                {useTimer && (
+                  <div className="space-y-2">
+                    <Label htmlFor="timer-duration">Select timer duration:</Label>
+                    <Select
+                      value={timerDuration.toString()}
+                      onValueChange={(value) => setTimerDuration(parseInt(value))}
+                    >
+                      <SelectTrigger id="timer-duration" className="w-full">
+                        <SelectValue placeholder="Select duration" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="15">15 seconds</SelectItem>
+                        <SelectItem value="20">20 seconds</SelectItem>
+                        <SelectItem value="30">30 seconds</SelectItem>
+                        <SelectItem value="60">1 minute</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
                 <div className="text-sm text-muted-foreground">
-                  {useTimer ? "You will have 20 seconds for each question." : "No time limit will be applied."}
+                  {useTimer 
+                    ? `You will have ${timerDuration === 60 ? '1 minute' : `${timerDuration} seconds`} for each question.` 
+                    : "No time limit will be applied."}
                 </div>
                 <div className="flex gap-3">
                   <Button variant="outline" asChild>
@@ -371,13 +398,16 @@ const Quiz = () => {
             </Link>
           </Button>
           <div className="flex items-center gap-4">
+            <ThemeToggle />
             <Clock className="h-4 w-4 text-muted-foreground" />
             <span className="text-sm text-muted-foreground">
               Question {currentQuestionIndex + 1} of {questions.length}
             </span>
             {useTimer && (
               <span className="text-sm font-medium">
-                {timeLeft}s left
+                {timeLeft >= 60 
+                  ? `${Math.floor(timeLeft / 60)}m${timeLeft % 60 > 0 ? ` ${timeLeft % 60}s` : ''}` 
+                  : `${timeLeft}s`} left
               </span>
             )}
           </div>

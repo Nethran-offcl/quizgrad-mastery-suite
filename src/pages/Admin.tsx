@@ -8,11 +8,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Link, useNavigate } from "react-router-dom";
 import { mockTopics, mockQuestions, Topic, Question } from "@/data/mockData";
 import { api } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Plus, Edit, Trash2, BookOpen, HelpCircle } from "lucide-react";
+import { ArrowLeft, Plus, Edit, Trash2, BookOpen, HelpCircle, RefreshCw } from "lucide-react";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 const Admin = () => {
   const { user } = useAuth();
@@ -26,6 +28,7 @@ const Admin = () => {
   // Local questions state persisted in backend
   const [questions, setQuestions] = useState<Question[]>([]);
   const [topics, setTopics] = useState<Topic[]>([]);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Question form state
   const [newQuestion, setNewQuestion] = useState({
@@ -48,33 +51,51 @@ const Admin = () => {
     return null;
   }
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const topicsRows = await api.topics.list();
-        setTopics(topicsRows.map((t: any) => ({ id: t.id, title: t.title, description: t.description ?? '', created_at: t.created_at })));
+  const loadData = async () => {
+    try {
+      const topicsRows = await api.topics.list();
+      setTopics(topicsRows.map((t: any) => ({ id: t.id, title: t.title, description: t.description ?? '', created_at: t.created_at })));
 
-        const rows = await api.questions.list();
-        const mapped: Question[] = rows.map((r: any) => {
-          let parsed: any = {};
-          try { parsed = r.body ? JSON.parse(r.body) : {}; } catch {}
-          return {
-            id: r.id,
-            topic_id: r.topic_id ?? parsed.topic_id ?? (topicsRows[0]?.id ?? 1),
-            question_text: r.title,
-            option1: parsed.option1 ?? "",
-            option2: parsed.option2 ?? "",
-            option3: parsed.option3 ?? "",
-            option4: parsed.option4 ?? "",
-            correct_option: parsed.correct_option ?? 1,
-            created_at: r.created_at || new Date().toISOString(),
-          } as Question;
-        });
-        setQuestions(mapped);
-      } catch (e) {
-        console.error(e);
+      const rows = await api.questions.list();
+      const mapped: Question[] = rows.map((r: any) => {
+        let parsed: any = {};
+        try { parsed = r.body ? JSON.parse(r.body) : {}; } catch {}
+        return {
+          id: r.id,
+          topic_id: r.topic_id ?? parsed.topic_id ?? (topicsRows[0]?.id ?? 1),
+          question_text: r.title,
+          option1: parsed.option1 ?? "",
+          option2: parsed.option2 ?? "",
+          option3: parsed.option3 ?? "",
+          option4: parsed.option4 ?? "",
+          correct_option: parsed.correct_option ?? 1,
+          created_at: r.created_at || new Date().toISOString(),
+        } as Question;
+      });
+      setQuestions(mapped);
+      return true;
+    } catch (e) {
+      console.error(e);
+      return false;
+    }
+  };
+
+  const handleRefreshClick = async () => {
+    try {
+      setIsRefreshing(true);
+      const ok = await loadData();
+      if (!ok) {
+        toast({ title: "Refresh failed", description: "Could not load latest data.", variant: "destructive" });
+      } else {
+        toast({ title: "Data updated", description: "Topics and questions have been refreshed." });
       }
-    })();
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
+  useEffect(() => {
+    loadData();
   }, []);
 
   const handleCreateTopic = async () => {
@@ -95,6 +116,7 @@ const Admin = () => {
         created_at: new Date().toISOString()
       };
       setTopics(prev => [topic, ...prev]);
+      await loadData(); // Refresh to get latest data
     } catch (e) {
       toast({ title: "Error", description: (e as Error).message, variant: "destructive" });
       return;
@@ -111,7 +133,7 @@ const Admin = () => {
     if (!editingTopic || !editingTopic.title.trim()) return;
     try {
       await api.topics.update(editingTopic.id, editingTopic.title, editingTopic.description, user!.id);
-      setTopics(prev => prev.map(t => t.id === editingTopic.id ? editingTopic : t));
+      await loadData(); // Refresh to get latest data
       setEditingTopic(null);
       toast({ title: "Success", description: "Topic updated successfully" });
     } catch (e) {
@@ -122,8 +144,7 @@ const Admin = () => {
   const handleDeleteTopic = async (topicId: number) => {
     try {
       await api.topics.remove(topicId, user!.id);
-      setTopics(prev => prev.filter(t => t.id !== topicId));
-      setQuestions(prev => prev.filter(q => q.topic_id !== topicId));
+      await loadData(); // Refresh to get latest data
       toast({ title: "Success", description: "Topic and its questions deleted successfully" });
     } catch (e) {
       toast({ title: "Error", description: (e as Error).message, variant: "destructive" });
@@ -158,18 +179,7 @@ const Admin = () => {
     });
     try {
       const { id } = await api.questions.create(title, body, user!.id, parseInt(newQuestion.topic_id));
-      const question: Question = {
-        id,
-        topic_id: parseInt(newQuestion.topic_id),
-        question_text: newQuestion.question_text,
-        option1: newQuestion.option1,
-        option2: newQuestion.option2,
-        option3: newQuestion.option3,
-        option4: newQuestion.option4,
-        correct_option: newQuestion.correct_option,
-        created_at: new Date().toISOString()
-      };
-      setQuestions(prev => [question, ...prev]);
+      await loadData(); // Refresh to get latest data
     } catch (e) {
       toast({ title: "Error", description: (e as Error).message, variant: "destructive" });
       return;
@@ -203,7 +213,7 @@ const Admin = () => {
         correct_option: editingQuestion.correct_option
       });
       await api.questions.update(editingQuestion.id, editingQuestion.question_text, body, user!.id, editingQuestion.topic_id);
-      setQuestions(prev => prev.map(q => q.id === editingQuestion.id ? editingQuestion : q));
+      await loadData(); // Refresh to get latest data
       setEditingQuestion(null);
       toast({ title: "Success", description: "Question updated successfully" });
     } catch (e) {
@@ -214,7 +224,7 @@ const Admin = () => {
   const handleDeleteQuestion = async (questionId: number) => {
     try {
       await api.questions.remove(questionId, user!.id);
-      setQuestions(prev => prev.filter(q => q.id !== questionId));
+      await loadData(); // Refresh to get latest data
       toast({ title: "Success", description: "Question deleted successfully" });
     } catch (e) {
       toast({ title: "Error", description: (e as Error).message, variant: "destructive" });
@@ -236,7 +246,13 @@ const Admin = () => {
             <h1 className="text-2xl font-bold text-quiz-primary">QuizGrad Admin</h1>
             <Badge>Admin Panel</Badge>
           </div>
-          <div className="flex items-center gap-4" />
+          <div className="flex items-center gap-4">
+            <ThemeToggle />
+            <Button onClick={handleRefreshClick} variant="outline" size="sm" disabled={isRefreshing}>
+              <RefreshCw className={`mr-2 h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+              Refresh
+            </Button>
+          </div>
         </div>
       </nav>
 
@@ -459,7 +475,7 @@ const Admin = () => {
               </CardContent>
             </Card>
 
-            {/* Existing Questions */}
+            {/* Existing Questions - Grouped by Topic */}
             <Card className="bg-quiz-primary/10 border-quiz-primary/20">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -468,130 +484,170 @@ const Admin = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  {questions.map((question) => {
-                    const topic = topics.find(t => t.id === question.topic_id);
-                    
-                    return (
-                      <div key={question.id} className="border rounded-lg p-4">
-                        {editingQuestion?.id === question.id ? (
-                          <div className="space-y-4">
-                            <div className="grid md:grid-cols-2 gap-4">
-                              <div className="space-y-2 md:col-span-2">
-                                <Label>Question Text</Label>
-                                <Textarea
-                                  value={editingQuestion.question_text}
-                                  onChange={(e) => setEditingQuestion(prev => prev ? { ...prev, question_text: e.target.value } : prev)}
-                                  placeholder="Enter question"
-                                />
+                {topics.length === 0 ? (
+                  <div className="text-center py-8">
+                    <HelpCircle className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                    <p className="text-muted-foreground">No topics created yet. Create a topic first to add questions.</p>
+                  </div>
+                ) : (
+                  <Accordion type="multiple" className="w-full">
+                    {topics
+                      .map((topic) => ({
+                        topic,
+                        questionCount: questions.filter(q => q.topic_id === topic.id).length
+                      }))
+                      .sort((a, b) => {
+                        // Sort by question count (descending), then alphabetically by title
+                        if (b.questionCount !== a.questionCount) {
+                          return b.questionCount - a.questionCount;
+                        }
+                        return a.topic.title.localeCompare(b.topic.title);
+                      })
+                      .map(({ topic, questionCount }) => {
+                      const topicQuestions = questions.filter(q => q.topic_id === topic.id);
+                      
+                      return (
+                        <AccordionItem key={topic.id} value={`topic-${topic.id}`} className="border-b">
+                          <AccordionTrigger className="hover:no-underline">
+                            <div className="flex items-center justify-between w-full pr-4">
+                              <div className="flex items-center gap-3">
+                                <BookOpen className="h-5 w-5 text-quiz-primary" />
+                                <div className="text-left">
+                                  <h3 className="font-semibold text-lg">{topic.title}</h3>
+                                  {topic.description && (
+                                    <p className="text-sm text-muted-foreground">{topic.description}</p>
+                                  )}
+                                </div>
                               </div>
-                              <div className="space-y-2">
-                                <Label>Option 1</Label>
-                                <Input
-                                  value={editingQuestion.option1}
-                                  onChange={(e) => setEditingQuestion(prev => prev ? { ...prev, option1: e.target.value } : prev)}
-                                />
-                              </div>
-                              <div className="space-y-2">
-                                <Label>Option 2</Label>
-                                <Input
-                                  value={editingQuestion.option2}
-                                  onChange={(e) => setEditingQuestion(prev => prev ? { ...prev, option2: e.target.value } : prev)}
-                                />
-                              </div>
-                              <div className="space-y-2">
-                                <Label>Option 3</Label>
-                                <Input
-                                  value={editingQuestion.option3}
-                                  onChange={(e) => setEditingQuestion(prev => prev ? { ...prev, option3: e.target.value } : prev)}
-                                />
-                              </div>
-                              <div className="space-y-2">
-                                <Label>Option 4</Label>
-                                <Input
-                                  value={editingQuestion.option4}
-                                  onChange={(e) => setEditingQuestion(prev => prev ? { ...prev, option4: e.target.value } : prev)}
-                                />
-                              </div>
-                              <div className="space-y-2">
-                                <Label>Correct Answer</Label>
-                                <Select 
-                                  value={editingQuestion.correct_option.toString()}
-                                  onValueChange={(value) => setEditingQuestion(prev => prev ? { ...prev, correct_option: parseInt(value) as 1 | 2 | 3 | 4 } : prev)}
-                                >
-                                  <SelectTrigger>
-                                    <SelectValue />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    <SelectItem value="1">Option 1</SelectItem>
-                                    <SelectItem value="2">Option 2</SelectItem>
-                                    <SelectItem value="3">Option 3</SelectItem>
-                                    <SelectItem value="4">Option 4</SelectItem>
-                                  </SelectContent>
-                                </Select>
-                              </div>
+                              <Badge variant="outline" className="ml-auto">
+                                {questionCount} {questionCount === 1 ? 'question' : 'questions'}
+                              </Badge>
                             </div>
-                            <div className="flex gap-2">
-                              <Button onClick={handleUpdateQuestion} size="sm">Save</Button>
-                              <Button onClick={() => setEditingQuestion(null)} variant="outline" size="sm">Cancel</Button>
-                            </div>
-                          </div>
-                        ) : (
-                          <>
-                            <div className="flex justify-between items-start mb-3">
-                              <div className="flex-1">
-                                <Badge variant="outline" className="mb-2">
-                                  {topic?.title || 'Unknown Topic'}
-                                </Badge>
-                                <h3 className="font-medium">{question.question_text}</h3>
+                          </AccordionTrigger>
+                          <AccordionContent>
+                            {questionCount === 0 ? (
+                              <div className="text-center py-6 text-muted-foreground">
+                                <HelpCircle className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                                <p>No questions in this topic yet</p>
                               </div>
-                              <div className="flex gap-2">
-                                <Button
-                                  onClick={() => setEditingQuestion(question)}
-                                  size="sm"
-                                  variant="outline"
-                                >
-                                  <Edit className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                  onClick={() => handleDeleteQuestion(question.id)}
-                                  size="sm"
-                                  variant="destructive"
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </div>
-                            </div>
-                            <div className="grid md:grid-cols-2 gap-2 text-sm">
-                              {[1, 2, 3, 4].map((optionNum) => (
-                                <div 
-                                  key={optionNum}
-                                  className={`p-2 rounded ${
-                                    question.correct_option === optionNum 
-                                      ? 'bg-quiz-success/10 border border-quiz-success/20' 
-                                      : 'bg-muted'
-                                  }`}
-                                >
-                                  {optionNum}. {question[`option${optionNum}` as keyof Question] as string}
-                                  {question.correct_option === optionNum && (
-                                    <Badge variant="default" className="ml-2 text-xs">Correct</Badge>
+                            ) : (
+                              <div className="space-y-4 pt-4">
+                                {topicQuestions.map((question) => (
+                                <div key={question.id} className="border rounded-lg p-4 bg-background">
+                                  {editingQuestion?.id === question.id ? (
+                                    <div className="space-y-4">
+                                      <div className="grid md:grid-cols-2 gap-4">
+                                        <div className="space-y-2 md:col-span-2">
+                                          <Label>Question Text</Label>
+                                          <Textarea
+                                            value={editingQuestion.question_text}
+                                            onChange={(e) => setEditingQuestion(prev => prev ? { ...prev, question_text: e.target.value } : prev)}
+                                            placeholder="Enter question"
+                                          />
+                                        </div>
+                                        <div className="space-y-2">
+                                          <Label>Option 1</Label>
+                                          <Input
+                                            value={editingQuestion.option1}
+                                            onChange={(e) => setEditingQuestion(prev => prev ? { ...prev, option1: e.target.value } : prev)}
+                                          />
+                                        </div>
+                                        <div className="space-y-2">
+                                          <Label>Option 2</Label>
+                                          <Input
+                                            value={editingQuestion.option2}
+                                            onChange={(e) => setEditingQuestion(prev => prev ? { ...prev, option2: e.target.value } : prev)}
+                                          />
+                                        </div>
+                                        <div className="space-y-2">
+                                          <Label>Option 3</Label>
+                                          <Input
+                                            value={editingQuestion.option3}
+                                            onChange={(e) => setEditingQuestion(prev => prev ? { ...prev, option3: e.target.value } : prev)}
+                                          />
+                                        </div>
+                                        <div className="space-y-2">
+                                          <Label>Option 4</Label>
+                                          <Input
+                                            value={editingQuestion.option4}
+                                            onChange={(e) => setEditingQuestion(prev => prev ? { ...prev, option4: e.target.value } : prev)}
+                                          />
+                                        </div>
+                                        <div className="space-y-2">
+                                          <Label>Correct Answer</Label>
+                                          <Select 
+                                            value={editingQuestion.correct_option.toString()}
+                                            onValueChange={(value) => setEditingQuestion(prev => prev ? { ...prev, correct_option: parseInt(value) as 1 | 2 | 3 | 4 } : prev)}
+                                          >
+                                            <SelectTrigger>
+                                              <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                              <SelectItem value="1">Option 1</SelectItem>
+                                              <SelectItem value="2">Option 2</SelectItem>
+                                              <SelectItem value="3">Option 3</SelectItem>
+                                              <SelectItem value="4">Option 4</SelectItem>
+                                            </SelectContent>
+                                          </Select>
+                                        </div>
+                                      </div>
+                                      <div className="flex gap-2">
+                                        <Button onClick={handleUpdateQuestion} size="sm">Save</Button>
+                                        <Button onClick={() => setEditingQuestion(null)} variant="outline" size="sm">Cancel</Button>
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <>
+                                      <div className="flex justify-between items-start mb-3">
+                                        <div className="flex-1">
+                                          <h3 className="font-medium">{question.question_text}</h3>
+                                        </div>
+                                        <div className="flex gap-2">
+                                          <Button
+                                            onClick={() => setEditingQuestion(question)}
+                                            size="sm"
+                                            variant="outline"
+                                          >
+                                            <Edit className="h-4 w-4" />
+                                          </Button>
+                                          <Button
+                                            onClick={() => handleDeleteQuestion(question.id)}
+                                            size="sm"
+                                            variant="destructive"
+                                          >
+                                            <Trash2 className="h-4 w-4" />
+                                          </Button>
+                                        </div>
+                                      </div>
+                                      <div className="grid md:grid-cols-2 gap-2 text-sm">
+                                        {[1, 2, 3, 4].map((optionNum) => (
+                                          <div 
+                                            key={optionNum}
+                                            className={`p-2 rounded ${
+                                              question.correct_option === optionNum 
+                                                ? 'bg-quiz-success/10 border border-quiz-success/20' 
+                                                : 'bg-muted'
+                                            }`}
+                                          >
+                                            {optionNum}. {question[`option${optionNum}` as keyof Question] as string}
+                                            {question.correct_option === optionNum && (
+                                              <Badge variant="default" className="ml-2 text-xs">Correct</Badge>
+                                            )}
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </>
                                   )}
                                 </div>
                               ))}
-                            </div>
-                          </>
-                        )}
-                      </div>
-                    );
-                  })}
-                  
-                  {questions.length === 0 && (
-                    <div className="text-center py-8">
-                      <HelpCircle className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-                      <p className="text-muted-foreground">No questions created yet</p>
-                    </div>
-                  )}
-                </div>
+                              </div>
+                            )}
+                          </AccordionContent>
+                        </AccordionItem>
+                      );
+                    })}
+                  </Accordion>
+                )}
               </CardContent>
             </Card>
           </TabsContent>

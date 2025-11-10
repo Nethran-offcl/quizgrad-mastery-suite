@@ -7,6 +7,7 @@ import { mockTopics, mockQuestions, mockResults } from "@/data/mockData";
 import { useEffect, useMemo, useState } from "react";
 import { api } from "@/lib/api";
 import { BookOpen, Play, BarChart3, ArrowLeft, RefreshCw } from "lucide-react";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { useToast } from "@/hooks/use-toast";
 
 const Topics = () => {
@@ -118,6 +119,7 @@ const Topics = () => {
             </Badge>
           </div>
           <div className="flex items-center gap-4">
+            <ThemeToggle />
             <span className="text-sm text-muted-foreground">Welcome, {user.email}</span>
             {(user.role === 'admin' || user.role === 'quiz_manager') && (
               <Button asChild className="bg-quiz-primary hover:bg-quiz-primary/90">

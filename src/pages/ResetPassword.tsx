@@ -5,6 +5,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import { ArrowLeft, Loader2 } from "lucide-react";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { api } from "@/lib/api";
 
 const ResetPassword = () => {
@@ -34,23 +36,53 @@ const ResetPassword = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
+    <div className="min-h-screen flex items-center justify-center bg-background p-4 relative">
+      <Button
+        variant="ghost"
+        onClick={() => navigate("/login")}
+        className="absolute top-4 left-4"
+      >
+        <ArrowLeft className="mr-2 h-4 w-4" />
+        Back to Login
+      </Button>
+      <div className="absolute top-4 right-4">
+        <ThemeToggle />
+      </div>
       <div className="w-full max-w-md">
         <Card>
-          <CardHeader>
-            <CardTitle>Reset your password</CardTitle>
+          <CardHeader className="text-center">
+            <CardTitle className="text-2xl">Reset your password</CardTitle>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label>New password</Label>
-                <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
+                <Label htmlFor="password">New password</Label>
+                <Input 
+                  id="password"
+                  type="password" 
+                  value={password} 
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Enter new password"
+                  required
+                />
               </div>
               <div className="space-y-2">
-                <Label>Confirm password</Label>
-                <Input type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} />
+                <Label htmlFor="confirm">Confirm password</Label>
+                <Input 
+                  id="confirm"
+                  type="password" 
+                  value={confirm} 
+                  onChange={(e) => setConfirm(e.target.value)}
+                  placeholder="Confirm new password"
+                  required
+                />
               </div>
-              <Button type="submit" className="w-full bg-quiz-primary hover:bg-quiz-primary/90" disabled={loading}>
+              <Button 
+                type="submit" 
+                className="w-full bg-quiz-primary hover:bg-quiz-primary/90" 
+                disabled={loading}
+              >
+                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Update Password
               </Button>
             </form>

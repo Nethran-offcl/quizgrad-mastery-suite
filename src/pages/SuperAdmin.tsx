@@ -8,6 +8,7 @@ import { api } from "@/lib/api";
 import { ArrowLeft, Trash2, RefreshCw } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import jsPDF from "jspdf";
 
 const SuperAdmin = () => {
@@ -17,25 +18,26 @@ const SuperAdmin = () => {
   const [loading, setLoading] = useState(true);
   const [results, setResults] = useState<any[]>([]);
   const [stats, setStats] = useState<any | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const loadUsers = async () => {
-    setLoading(true);
     try {
       const rows = await api.users.listAll(user!.id);
       setUsers(rows);
+      return true;
     } catch (e: any) {
-      toast({ title: "Error", description: e?.message || "Failed to load users", variant: "destructive" });
-    } finally {
-      setLoading(false);
+      console.error("Failed to load users:", e);
+      return false;
     }
   };
 
   useEffect(() => {
     // Guard: only super admin (id 0) can view this page
     if (!user || user.role !== 'admin' || user.id !== 0) return;
-    loadUsers();
-    loadResults();
-    loadStats();
+    setLoading(true);
+    Promise.all([loadUsers(), loadResults(), loadStats()]).finally(() => {
+      setLoading(false);
+    });
   }, [user]);
 
   const handleDelete = async (id: number) => {
@@ -53,8 +55,10 @@ const SuperAdmin = () => {
     try {
       const rows = await api.admin.results.listAll(user!.id);
       setResults(rows);
+      return true;
     } catch (e: any) {
       toast({ title: "Error", description: e?.message || "Failed to load results", variant: "destructive" });
+      return false;
     }
   };
 
@@ -72,8 +76,28 @@ const SuperAdmin = () => {
     try {
       const s = await api.admin.stats(user!.id);
       setStats(s);
+      return true;
     } catch (e: any) {
       toast({ title: "Error", description: e?.message || "Failed to load stats", variant: "destructive" });
+      return false;
+    }
+  };
+
+  const handleRefreshClick = async () => {
+    try {
+      setIsRefreshing(true);
+      const [usersOk, resultsOk, statsOk] = await Promise.all([
+        loadUsers(),
+        loadResults(),
+        loadStats()
+      ]);
+      if (usersOk && resultsOk && statsOk) {
+        toast({ title: "Data updated", description: "All data has been refreshed." });
+      } else {
+        toast({ title: "Partial refresh", description: "Some data may not have been updated.", variant: "destructive" });
+      }
+    } finally {
+      setIsRefreshing(false);
     }
   };
 
@@ -92,37 +116,230 @@ const SuperAdmin = () => {
     const userData = users.find(u => u.id === selectedUserId);
     if (!userData) return;
     let userResults: any[] = await fetchResultsForUser(selectedUserId);
-    let topics: string[] = [];
-    if (userResults.length > 0) topics = Array.from(new Set(userResults.map(r => r.topic_title)));
     const doc = new jsPDF();
-    doc.setFontSize(18);
-    doc.text('QuizGrad User Stats', 20, 20);
-    doc.setFontSize(12);
-    doc.text(`Username: ${userData.email}`, 20, 30);
-    doc.text(`Role: ${userData.role}`, 20, 38);
-    doc.text(`Total Quizzes Taken: ${userResults.length}`, 20, 46);
-    const averageScore = userResults.length ? Math.round(userResults.reduce((sum, r) => sum + (r.score/r.total_questions)*100, 0)/userResults.length) : 0;
-    doc.text(`Average Score: ${averageScore}%`, 20, 54);
-    doc.text(' ', 20, 62);
-    doc.text('Quiz Results:', 20, 70);
-    let y = 80;
-    if (!userResults.length) {
-      doc.text('No quizzes taken yet.', 20, y);
-    } else {
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    let yPos = 20;
+
+    // Helper function to draw a colored header box
+    const drawHeader = (title: string, y: number) => {
+      doc.setFillColor(59, 130, 246); // Blue color
+      doc.rect(0, y - 5, pageWidth, 15, 'F');
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(20);
+      doc.setFont(undefined, 'bold');
+      doc.text(title, pageWidth / 2, y + 5, { align: 'center' });
+      doc.setTextColor(0, 0, 0);
+      doc.setFont(undefined, 'normal');
+      yPos = y + 20;
+    };
+
+    // Helper function to draw a stats box
+    const drawStatsBox = (label: string, value: string, x: number, y: number, width: number, height: number) => {
+      // Border
+      doc.setDrawColor(200, 200, 200);
+      doc.setLineWidth(0.5);
+      doc.rect(x, y, width, height);
+      
+      // Light background
+      doc.setFillColor(245, 247, 250);
+      doc.rect(x, y, width, height, 'F');
+      
+      // Label
+      doc.setTextColor(100, 100, 100);
+      doc.setFontSize(10);
+      doc.text(label, x + width / 2, y + 8, { align: 'center' });
+      
+      // Value
+      doc.setTextColor(0, 0, 0);
+      doc.setFontSize(16);
+      doc.setFont(undefined, 'bold');
+      doc.text(value, x + width / 2, y + 15, { align: 'center' });
+      doc.setFont(undefined, 'normal');
+    };
+
+    // Helper function to draw table
+    const drawTable = (headers: string[], rows: string[][], startY: number) => {
+      const tableWidth = pageWidth - 30;
+      const colWidths = [35, tableWidth - 140, 35, 30]; // Date, Topic, Score, Percentage
+      const rowHeight = 10;
+      const tableStartX = 15;
+      let currentY = startY;
+
+      // Table header
+      doc.setFillColor(59, 130, 246);
+      doc.rect(tableStartX, currentY, tableWidth, rowHeight, 'F');
+      doc.setTextColor(255, 255, 255);
       doc.setFontSize(11);
-      doc.text('Date', 20, y);
-      doc.text('Topic', 55, y);
-      doc.text('Score', 130, y);
-      y += 8;
-      userResults.forEach(result => {
-        const pct = Math.round((result.score/result.total_questions)*100);
-        doc.text((new Date(result.taken_at).toLocaleDateString()), 20, y);
-        doc.text(result.topic_title || 'Unknown', 55, y);
-        doc.text(`${result.score}/${result.total_questions} (${pct}%)`, 130, y);
-        y += 8;
-        if (y > 270) { doc.addPage(); y = 20; }
+      doc.setFont(undefined, 'bold');
+      
+      // Draw vertical lines for header
+      let xPos = tableStartX;
+      doc.setDrawColor(255, 255, 255);
+      doc.setLineWidth(0.5);
+      for (let i = 0; i < colWidths.length; i++) {
+        xPos += colWidths[i];
+        if (i < colWidths.length - 1) {
+          doc.line(xPos, currentY, xPos, currentY + rowHeight);
+        }
+      }
+      
+      xPos = tableStartX + 5;
+      headers.forEach((header, index) => {
+        doc.text(header, xPos, currentY + 7);
+        xPos += colWidths[index];
       });
+
+      doc.setTextColor(0, 0, 0);
+      doc.setFont(undefined, 'normal');
+      currentY += rowHeight;
+
+      // Table rows
+      rows.forEach((row, rowIndex) => {
+        // Alternate row colors
+        if (rowIndex % 2 === 0) {
+          doc.setFillColor(250, 250, 250);
+          doc.rect(tableStartX, currentY, tableWidth, rowHeight, 'F');
+        }
+
+        // Row border
+        doc.setDrawColor(220, 220, 220);
+        doc.setLineWidth(0.3);
+        doc.line(tableStartX, currentY, tableStartX + tableWidth, currentY);
+
+        // Row content
+        doc.setFontSize(10);
+        xPos = tableStartX + 5;
+        row.forEach((cell, colIndex) => {
+          doc.text(cell, xPos, currentY + 7);
+          xPos += colWidths[colIndex];
+        });
+
+        currentY += rowHeight;
+
+        // Check if we need a new page
+        if (currentY > pageHeight - 30) {
+          doc.addPage();
+          currentY = 20;
+          // Redraw header on new page
+          doc.setFillColor(59, 130, 246);
+          doc.rect(tableStartX, currentY, tableWidth, rowHeight, 'F');
+          doc.setTextColor(255, 255, 255);
+          doc.setFont(undefined, 'bold');
+          // Draw vertical lines for header
+          xPos = tableStartX;
+          doc.setDrawColor(255, 255, 255);
+          doc.setLineWidth(0.5);
+          for (let i = 0; i < colWidths.length; i++) {
+            xPos += colWidths[i];
+            if (i < colWidths.length - 1) {
+              doc.line(xPos, currentY, xPos, currentY + rowHeight);
+            }
+          }
+          xPos = tableStartX + 5;
+          headers.forEach((header, index) => {
+            doc.text(header, xPos, currentY + 7);
+            xPos += colWidths[index];
+          });
+          doc.setTextColor(0, 0, 0);
+          doc.setFont(undefined, 'normal');
+          currentY += rowHeight;
+        }
+      });
+
+      // Draw vertical lines and borders
+      doc.setDrawColor(200, 200, 200);
+      doc.setLineWidth(0.5);
+      xPos = tableStartX;
+      // Draw vertical separators
+      for (let i = 0; i < colWidths.length - 1; i++) {
+        xPos += colWidths[i];
+        doc.line(xPos, startY, xPos, currentY);
+      }
+      // Draw outer borders
+      doc.line(tableStartX, startY, tableStartX, currentY); // Left
+      doc.line(tableStartX + tableWidth, startY, tableStartX + tableWidth, currentY); // Right
+      doc.line(tableStartX, currentY, tableStartX + tableWidth, currentY); // Bottom
+
+      return currentY;
+    };
+
+    // Header
+    drawHeader('QuizGrad - User Statistics Report', 10);
+
+    // User info section
+    doc.setFontSize(12);
+    doc.setTextColor(60, 60, 60);
+    doc.text('User Information', 20, yPos);
+    yPos += 8;
+
+    // User info box
+    doc.setDrawColor(200, 200, 200);
+    doc.setFillColor(249, 250, 251);
+    doc.setLineWidth(0.5);
+    doc.rect(15, yPos, pageWidth - 30, 25, 'FD');
+    
+    doc.setFontSize(10);
+    doc.setTextColor(100, 100, 100);
+    doc.text('Email:', 20, yPos + 8);
+    doc.text('Role:', 20, yPos + 16);
+    doc.setTextColor(0, 0, 0);
+    doc.setFont(undefined, 'bold');
+    doc.text(userData.email, 50, yPos + 8);
+    doc.text(userData.role.charAt(0).toUpperCase() + userData.role.slice(1), 50, yPos + 16);
+    doc.setFont(undefined, 'normal');
+    yPos += 35;
+
+    // Calculate stats
+    const totalQuizzes = userResults.length;
+    const totalScore = userResults.reduce((sum, r) => sum + r.score, 0);
+    const totalQuestions = userResults.reduce((sum, r) => sum + r.total_questions, 0);
+    const averageScore = userResults.length ? Math.round(userResults.reduce((sum, r) => sum + (r.score/r.total_questions)*100, 0)/userResults.length) : 0;
+
+    // Stats boxes
+    const statsBoxWidth = (pageWidth - 50) / 3;
+    drawStatsBox('Total Quizzes', totalQuizzes.toString(), 15, yPos, statsBoxWidth, 20);
+    drawStatsBox('Total Score', `${totalScore}/${totalQuestions}`, 20 + statsBoxWidth, yPos, statsBoxWidth, 20);
+    drawStatsBox('Average Score', `${averageScore}%`, 25 + statsBoxWidth * 2, yPos, statsBoxWidth, 20);
+    yPos += 35;
+
+    // Quiz Results section
+    doc.setFontSize(12);
+    doc.setTextColor(60, 60, 60);
+    doc.text('Quiz Results History', 20, yPos);
+    yPos += 10;
+
+    if (!userResults.length) {
+      doc.setFontSize(10);
+      doc.setTextColor(150, 150, 150);
+      doc.text('No quizzes taken yet.', 20, yPos);
+    } else {
+      // Prepare table data
+      const headers = ['Date', 'Topic', 'Score', 'Percentage'];
+      const tableRows = userResults.map(result => {
+        const pct = Math.round((result.score / result.total_questions) * 100);
+        const date = new Date(result.taken_at).toLocaleDateString();
+        const topic = result.topic_title || 'Unknown';
+        return [date, topic.length > 25 ? topic.substring(0, 22) + '...' : topic, `${result.score}/${result.total_questions}`, `${pct}%`];
+      });
+
+      yPos = drawTable(headers, tableRows, yPos);
     }
+
+    // Footer
+    const totalPages = doc.getNumberOfPages();
+    for (let i = 1; i <= totalPages; i++) {
+      doc.setPage(i);
+      doc.setFontSize(8);
+      doc.setTextColor(150, 150, 150);
+      doc.text(
+        `Generated on ${new Date().toLocaleDateString()} • Page ${i} of ${totalPages}`,
+        pageWidth / 2,
+        pageHeight - 10,
+        { align: 'center' }
+      );
+    }
+
     doc.save(`quizgrad_stats_user${userData.id}.pdf`);
   }
 
@@ -137,8 +354,9 @@ const SuperAdmin = () => {
             </Link>
           </Button>
           <div className="flex items-center gap-4">
-            <Button onClick={loadUsers} variant="outline" size="sm">
-              <RefreshCw className="mr-2 h-4 w-4" />
+            <ThemeToggle />
+            <Button onClick={handleRefreshClick} variant="outline" size="sm" disabled={isRefreshing}>
+              <RefreshCw className={`mr-2 h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
               Refresh
             </Button>
           </div>

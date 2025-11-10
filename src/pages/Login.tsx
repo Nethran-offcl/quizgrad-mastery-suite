@@ -6,7 +6,8 @@ import { Label } from "@/components/ui/label";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2 } from "lucide-react";
+import { Loader2, ArrowLeft } from "lucide-react";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { api } from "@/lib/api";
 
 const Login = () => {
@@ -88,7 +89,18 @@ const Login = () => {
   }, [login, navigate, toast]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
+    <div className="min-h-screen flex items-center justify-center bg-background p-4 relative">
+      <Button
+        variant="ghost"
+        onClick={() => navigate("/")}
+        className="absolute top-4 left-4"
+      >
+        <ArrowLeft className="mr-2 h-4 w-4" />
+        Back to Home
+      </Button>
+      <div className="absolute top-4 right-4">
+        <ThemeToggle />
+      </div>
       <div className="w-full max-w-md">
         <Card>
           <CardHeader className="text-center">
@@ -140,12 +152,9 @@ const Login = () => {
                 </Link>
               </p>
               <p className="mt-2 text-muted-foreground">
-                <button type="button" className="text-quiz-primary hover:underline" onClick={() => {
-                  const email = prompt('Enter your account email');
-                  if (!email) return;
-                  api.auth.requestReset(email).then(() => toast({ title: 'Password reset email sent (if account exists)' }))
-                    .catch((e:any) => toast({ title: 'Failed to send reset email', description: e?.message, variant: 'destructive' }));
-                }}>Forgot password?</button>
+                <Link to="/forgot-password" className="text-quiz-primary hover:underline">
+                  Forgot password?
+                </Link>
               </p>
             </div>
 
