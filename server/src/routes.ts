@@ -203,25 +203,52 @@ router.delete("/answers/:id", requireRole(['quiz_manager','admin']), async (req,
 
 // Results
 router.get("/results", requireUserId, async (req, res) => {
-	const userId = (req as any).userId as number;
-	const [rows] = await db.execute(
-		"SELECT id, user_id, topic_id, score, total_questions, taken_at FROM quiz_results WHERE user_id = ? ORDER BY taken_at DESC",
-		[userId]
-	);
-	res.json(rows);
+	try {
+		const userId = (req as any).userId as number;
+		// Super admin (id 0) has no DB row; return empty set for safety
+		if (userId === 0) return res.json([]);
+		const [rows] = await db.execute(
+			"SELECT id, user_id, topic_id, score, total_questions, taken_at FROM quiz_results WHERE user_id = ? ORDER BY taken_at DESC",
+			[userId]
+		);
+		res.json(rows);
+	} catch (e: any) {
+		console.error(e);
+		res.status(500).json({ error: process.env.NODE_ENV === 'production' ? "failed to load results" : (e?.message || "failed to load results") });
+	}
 });
 
 router.post("/results", requireUserId, async (req, res) => {
-	const userId = (req as any).userId as number;
-	const { topic_id, score, total_questions } = req.body || {};
-	if (!topic_id || score == null || total_questions == null) {
-		return res.status(400).json({ error: "topic_id, score, total_questions required" });
+	try {
+		const userId = (req as any).userId as number;
+		const { topic_id, score, total_questions } = req.body || {};
+		if (!topic_id || score == null || total_questions == null) {
+			return res.status(400).json({ error: "topic_id, score, total_questions required" });
+		}
+		// Disallow super admin from writing user-scoped results (no users.id = 0)
+		if (userId === 0) {
+			return res.status(403).json({ error: "super admin cannot save personal quiz results" });
+		}
+		// Validate user exists
+		const [[userRow]]: any = await db.query("SELECT id FROM users WHERE id = ?", [userId]);
+		if (!userRow) return res.status(404).json({ error: "user not found" });
+		// Validate topic exists
+		const [[topicRow]]: any = await db.query("SELECT id FROM topics WHERE id = ?", [Number(topic_id)]);
+		if (!topicRow) return res.status(400).json({ error: "topic not found" });
+
+		await db.execute(
+			"INSERT INTO quiz_results (user_id, topic_id, score, total_questions) VALUES (?, ?, ?, ?)",
+			[userId, Number(topic_id), Number(score), Number(total_questions)]
+		);
+		res.status(201).json({ ok: true });
+	} catch (e: any) {
+		console.error(e);
+		// Surface nicer error if FK fails for any reason
+		if (e && e.code === 'ER_NO_REFERENCED_ROW_2') {
+			return res.status(400).json({ error: "invalid user_id or topic_id" });
+		}
+		res.status(500).json({ error: process.env.NODE_ENV === 'production' ? "failed to save results" : (e?.message || "failed to save results") });
 	}
-	await db.execute(
-		"INSERT INTO quiz_results (user_id, topic_id, score, total_questions) VALUES (?, ?, ?, ?)",
-		[userId, Number(topic_id), Number(score), Number(total_questions)]
-	);
-	res.status(201).json({ ok: true });
 });
 
 export default router;

@@ -2,6 +2,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import Logo from "@/components/Logo";
 import { Link } from "react-router-dom";
 import { mockTopics, mockQuestions, mockResults } from "@/data/mockData";
 import { useEffect, useMemo, useState } from "react";
@@ -113,7 +114,7 @@ const Topics = () => {
                 Dashboard
               </Link>
             </Button>
-            <h1 className="text-2xl font-bold text-quiz-primary">QuizGrad</h1>
+            <Logo to="/dashboard" size={32} />
             <Badge variant={user.role === 'admin' ? 'default' : user.role === 'quiz_manager' ? 'default' : 'secondary'}>
               {user.role === 'admin' ? 'Admin' : user.role === 'quiz_manager' ? 'Quiz Manager' : 'User'}
             </Badge>

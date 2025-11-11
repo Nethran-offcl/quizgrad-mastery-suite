@@ -3,11 +3,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Link } from "react-router-dom";
 import { BookOpen, Users, Award, TrendingUp } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { Logo } from "@/components/Logo";
 
 const Landing = () => {
   return (
     <div className="min-h-screen bg-background">
-      {/* Theme Toggle */}
+      {/* Global chrome: Logo top-left + Theme Toggle top-right */}
+      <div className="absolute top-4 left-4 z-10">
+        <Logo size={40} />
+      </div>
       <div className="absolute top-4 right-4 z-10">
         <ThemeToggle />
       </div>

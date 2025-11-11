@@ -9,6 +9,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { Logo } from "@/components/Logo";
 
 const Signup = () => {
   const [email, setEmail] = useState("");
@@ -73,6 +74,9 @@ const Signup = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4 relative">
+      <div className="absolute top-4 left-4">
+        <Logo size={40} />
+      </div>
       <div className="absolute top-4 right-4">
         <ThemeToggle />
       </div>

@@ -2,6 +2,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import Logo from "@/components/Logo";
 import { Link } from "react-router-dom";
 import { mockTopics } from "@/data/mockData";
 import { useEffect, useState } from "react";
@@ -304,7 +305,7 @@ const Dashboard = () => {
       <nav className="border-b bg-card sticky top-0 z-50">
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
           <div className="flex items-center gap-4">
-            <h1 className="text-2xl font-bold text-quiz-primary">QuizGrad</h1>
+            <Logo to="/dashboard" size={32} />
             <Badge variant={user.role === 'admin' ? 'default' : user.role === 'quiz_manager' ? 'default' : 'secondary'}>
               {user.role === 'admin' ? 'Admin' : user.role === 'quiz_manager' ? 'Quiz Manager' : 'User'}
             </Badge>

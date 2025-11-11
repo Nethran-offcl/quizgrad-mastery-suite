@@ -10,6 +10,7 @@ import { Link } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import jsPDF from "jspdf";
+import Logo from "@/components/Logo";
 
 const SuperAdmin = () => {
   const { user } = useAuth();
@@ -347,12 +348,15 @@ const SuperAdmin = () => {
     <div className="min-h-screen bg-background">
       <nav className="border-b bg-card sticky top-0 z-50">
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-          <Button asChild className="bg-quiz-primary hover:bg-quiz-primary/90">
-            <Link to="/dashboard">
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Back to Dashboard
-            </Link>
-          </Button>
+          <div className="flex items-center gap-4">
+            <Button asChild className="bg-quiz-primary hover:bg-quiz-primary/90">
+              <Link to="/dashboard">
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Dashboard
+              </Link>
+            </Button>
+            <Logo to="/dashboard" size={32} />
+          </div>
           <div className="flex items-center gap-4">
             <ThemeToggle />
             <Button onClick={handleRefreshClick} variant="outline" size="sm" disabled={isRefreshing}>

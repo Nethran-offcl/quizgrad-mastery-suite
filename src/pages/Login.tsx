@@ -6,9 +6,10 @@ import { Label } from "@/components/ui/label";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, ArrowLeft } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { api } from "@/lib/api";
+import { Logo } from "@/components/Logo";
 
 const Login = () => {
   const [identifier, setIdentifier] = useState("");
@@ -90,14 +91,9 @@ const Login = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background p-4 relative">
-      <Button
-        variant="ghost"
-        onClick={() => navigate("/")}
-        className="absolute top-4 left-4"
-      >
-        <ArrowLeft className="mr-2 h-4 w-4" />
-        Back to Home
-      </Button>
+      <div className="absolute top-4 left-4">
+        <Logo size={40} />
+      </div>
       <div className="absolute top-4 right-4">
         <ThemeToggle />
       </div>

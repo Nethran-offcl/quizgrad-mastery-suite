@@ -53,19 +53,23 @@ const Quiz = () => {
     setIsCompleted(true);
     setShowResults(true);
 
-    // Persist to backend
-    try {
-      const topicIdToSave = questions[0]?.topic_id || Number(topicId) || 0;
-      console.log('Saving quiz result:', { userId: user.id, topicId: topicIdToSave, score: correctAnswers, totalQuestions: questions.length });
-      await api.results.save(user.id, topicIdToSave, correctAnswers, questions.length);
-      console.log('Quiz result saved successfully');
-    } catch (e) {
-      console.error('Failed to save quiz result:', e);
-      toast({
-        title: "Warning",
-        description: "Quiz completed but result may not have been saved. Check your dashboard.",
-        variant: "destructive"
-      });
+    // Persist to backend (skip for super admin id=0)
+    if (user.id === 0) {
+      toast({ title: "Note", description: "Super admin results are not saved." });
+    } else {
+      try {
+        const topicIdToSave = questions[0]?.topic_id || Number(topicId) || 0;
+        console.log('Saving quiz result:', { userId: user.id, topicId: topicIdToSave, score: correctAnswers, totalQuestions: questions.length });
+        await api.results.save(user.id, topicIdToSave, correctAnswers, questions.length);
+        console.log('Quiz result saved successfully');
+      } catch (e) {
+        console.error('Failed to save quiz result:', e);
+        toast({
+          title: "Warning",
+          description: "Quiz completed but result may not have been saved. Check your dashboard.",
+          variant: "destructive"
+        });
+      }
     }
 
     toast({

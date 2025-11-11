@@ -14,6 +14,7 @@ import { mockTopics, mockQuestions, Topic, Question } from "@/data/mockData";
 import { api } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Plus, Edit, Trash2, BookOpen, HelpCircle, RefreshCw } from "lucide-react";
+import Logo from "@/components/Logo";
 import { ThemeToggle } from "@/components/ThemeToggle";
 
 const Admin = () => {
@@ -243,7 +244,7 @@ const Admin = () => {
                 Dashboard
               </Link>
             </Button>
-            <h1 className="text-2xl font-bold text-quiz-primary">QuizGrad Admin</h1>
+            <Logo to="/dashboard" size={32} />
             <Badge>Admin Panel</Badge>
           </div>
           <div className="flex items-center gap-4">
