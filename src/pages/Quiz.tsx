@@ -98,8 +98,8 @@ const Quiz = () => {
     (async () => {
       try {
         // Load topics for displaying the real topic name
-        const trows = await api.topics.list();
-        setTopics(trows.map((t: any) => ({ id: t.id, title: t.title })));
+  const trows = await api.topics.list();
+  setTopics(trows.map((t: any) => ({ id: t.id, title: t.title })));
 
         const rows = await api.questions.list(parseInt(topicId || '0'));
         const mapped: Question[] = rows.map((r: any) => {
@@ -118,6 +118,13 @@ const Quiz = () => {
           };
         });
         setQuestions(mapped);
+        // Apply admin-configured timer from topic if present
+        const tid = parseInt(topicId || '0');
+        const topicMeta = trows.find((t: any) => t.id === (mapped[0]?.topic_id ?? tid));
+        if (topicMeta) {
+          setUseTimer(Boolean(topicMeta.timer_enabled));
+          if (topicMeta.timer_seconds) setTimerDuration(Number(topicMeta.timer_seconds));
+        }
         setNotFound(mapped.length === 0);
       } catch (e) {
         console.error(e);
@@ -324,7 +331,7 @@ const Quiz = () => {
     );
   }
 
-  // Pre-start screen to choose timer option
+  // Pre-start screen (no user choice; shows admin-configured timer info)
   if (!hasStarted) {
     return (
       <div className="min-h-screen bg-background">
@@ -346,33 +353,10 @@ const Quiz = () => {
             </CardHeader>
             <CardContent>
               <div className="space-y-6">
-                <div className="flex items-center gap-3">
-                  <Checkbox id="use-timer" checked={useTimer} onCheckedChange={(val) => setUseTimer(Boolean(val))} />
-                  <Label htmlFor="use-timer">Use timer per question</Label>
-                </div>
-                {useTimer && (
-                  <div className="space-y-2">
-                    <Label htmlFor="timer-duration">Select timer duration:</Label>
-                    <Select
-                      value={timerDuration.toString()}
-                      onValueChange={(value) => setTimerDuration(parseInt(value))}
-                    >
-                      <SelectTrigger id="timer-duration" className="w-full">
-                        <SelectValue placeholder="Select duration" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="15">15 seconds</SelectItem>
-                        <SelectItem value="20">20 seconds</SelectItem>
-                        <SelectItem value="30">30 seconds</SelectItem>
-                        <SelectItem value="60">1 minute</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
                 <div className="text-sm text-muted-foreground">
-                  {useTimer 
-                    ? `You will have ${timerDuration === 60 ? '1 minute' : `${timerDuration} seconds`} for each question.` 
-                    : "No time limit will be applied."}
+                  {useTimer
+                    ? `Timer is enabled by the quiz manager: ${timerDuration === 60 ? '1 minute' : `${timerDuration} seconds`} per question.`
+                    : "No time limit (set by quiz manager)."}
                 </div>
                 <div className="flex gap-3">
                   <Button variant="outline" asChild>

@@ -26,8 +26,8 @@ const Topics = () => {
 
   const loadData = async () => {
     try {
-      const topicsRows = await api.topics.list();
-      setTopics(topicsRows.map((t: any) => ({ id: t.id, title: t.title, description: t.description ?? '', created_at: t.created_at })));
+  const topicsRows = await api.topics.list();
+  setTopics(topicsRows.map((t: any) => ({ id: t.id, title: t.title, description: t.description ?? '', created_at: t.created_at, timer_enabled: !!t.timer_enabled, timer_seconds: t.timer_seconds ?? 20 })));
 
       const rows = await api.questions.list();
       const mapped = rows.map((r: any) => {
@@ -161,6 +161,13 @@ const Topics = () => {
                   </div>
                   <CardTitle className="text-xl">{topic.title}</CardTitle>
                   <CardDescription>{topic.description}</CardDescription>
+                  <div className="mt-2 text-xs text-muted-foreground">
+                    {topic.timer_enabled ? (
+                      <span>Timer: {topic.timer_seconds === 60 ? '1 minute' : `${topic.timer_seconds} seconds`} per question</span>
+                    ) : (
+                      <span>No timer</span>
+                    )}
+                  </div>
                 </CardHeader>
                 <CardContent>
                   {/* Stats */}

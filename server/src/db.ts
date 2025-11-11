@@ -19,6 +19,8 @@ export async function initializeDatabase(): Promise<void> {
 			id INT AUTO_INCREMENT PRIMARY KEY,
 			title VARCHAR(255) NOT NULL,
 			description VARCHAR(1000) NULL,
+			timer_enabled TINYINT(1) NOT NULL DEFAULT 0,
+			timer_seconds INT NOT NULL DEFAULT 20,
 			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 		)`);
 
@@ -36,6 +38,13 @@ export async function initializeDatabase(): Promise<void> {
 
 		// Ensure ENUM includes new roles in case table already existed
 		try { await connection.query("ALTER TABLE users MODIFY role ENUM('admin','quiz_manager','user') NOT NULL DEFAULT 'user'"); } catch {}
+		// Backfill topics with timer columns if missing
+		try { await connection.query("ALTER TABLE topics ADD COLUMN timer_enabled TINYINT(1) NOT NULL DEFAULT 0"); } catch {}
+		try { await connection.query("ALTER TABLE topics ADD COLUMN timer_seconds INT NOT NULL DEFAULT 20"); } catch {}
+
+		// Enforce non-null description: normalize existing NULLs then apply NOT NULL constraint
+		try { await connection.query("UPDATE topics SET description = '' WHERE description IS NULL"); } catch {}
+		try { await connection.query("ALTER TABLE topics MODIFY description VARCHAR(1000) NOT NULL"); } catch {}
 		// Add username column if missing and ensure unique index
 		try { await connection.query("ALTER TABLE users ADD COLUMN username VARCHAR(50) NULL"); } catch {}
 		try { await connection.query("CREATE UNIQUE INDEX idx_users_username ON users (username)"); } catch {}

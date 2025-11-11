@@ -63,27 +63,36 @@ function requireSuperAdmin() {
 
 // Topics
 router.get("/topics", async (_req, res) => {
-    const [rows] = await db.query("SELECT id, title, description, created_at FROM topics ORDER BY id DESC");
-    res.json(rows);
+	const [rows] = await db.query("SELECT id, title, description, timer_enabled, timer_seconds, created_at FROM topics ORDER BY id DESC");
+	res.json(rows);
 });
 
 // Create/update/delete topics: quiz_manager and admin
 router.post("/topics", requireRole(['quiz_manager','admin']), async (req, res) => {
-    const { title, description } = req.body || {};
-    if (!title) return res.status(400).json({ error: "title required" });
-    const [result] = await db.execute(
-        "INSERT INTO topics (title, description) VALUES (?, ?)",
-        [title, description || null]
-    );
-    // @ts-ignore
-    res.status(201).json({ id: result.insertId });
+	const { title, description, timer_enabled, timer_seconds } = req.body || {};
+	if (!title) return res.status(400).json({ error: "title required" });
+	const desc = typeof description === 'string' ? description.trim() : '';
+	if (!desc) return res.status(400).json({ error: "description required" });
+	const enabled = timer_enabled ? 1 : 0;
+	const seconds = Number(timer_seconds) || 20;
+	const [result] = await db.execute(
+		"INSERT INTO topics (title, description, timer_enabled, timer_seconds) VALUES (?, ?, ?, ?)",
+		[title, desc, enabled, seconds]
+	);
+	// @ts-ignore
+	res.status(201).json({ id: result.insertId, timer_enabled: enabled, timer_seconds: seconds });
 });
 
 router.put("/topics/:id", requireRole(['quiz_manager','admin']), async (req, res) => {
-    const id = Number(req.params.id);
-    const { title, description } = req.body || {};
-    await db.execute("UPDATE topics SET title = ?, description = ? WHERE id = ?", [title, description || null, id]);
-    res.json({ ok: true });
+	const id = Number(req.params.id);
+	const { title, description, timer_enabled, timer_seconds } = req.body || {};
+	const desc = typeof description === 'string' ? description.trim() : '';
+	if (!title) return res.status(400).json({ error: "title required" });
+	if (!desc) return res.status(400).json({ error: "description required" });
+	const enabled = timer_enabled ? 1 : 0;
+	const seconds = Number(timer_seconds) || 20;
+	await db.execute("UPDATE topics SET title = ?, description = ?, timer_enabled = ?, timer_seconds = ? WHERE id = ?", [title, desc, enabled, seconds, id]);
+	res.json({ ok: true });
 });
 
 router.delete("/topics/:id", requireRole(['quiz_manager','admin']), async (req, res) => {

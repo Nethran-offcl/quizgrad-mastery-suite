@@ -23,7 +23,7 @@ const Admin = () => {
   const { toast } = useToast();
 
   // Topic form state
-  const [newTopic, setNewTopic] = useState({ title: '', description: '' });
+  const [newTopic, setNewTopic] = useState({ title: '', description: '', timer_enabled: false, timer_seconds: 20 });
   const [editingTopic, setEditingTopic] = useState<Topic | null>(null);
 
   // Local questions state persisted in backend
@@ -54,8 +54,8 @@ const Admin = () => {
 
   const loadData = async () => {
     try {
-      const topicsRows = await api.topics.list();
-      setTopics(topicsRows.map((t: any) => ({ id: t.id, title: t.title, description: t.description ?? '', created_at: t.created_at })));
+  const topicsRows = await api.topics.list();
+  setTopics(topicsRows.map((t: any) => ({ id: t.id, title: t.title, description: t.description ?? '', created_at: t.created_at, timer_enabled: !!t.timer_enabled, timer_seconds: t.timer_seconds ?? 20 })));
 
       const rows = await api.questions.list();
       const mapped: Question[] = rows.map((r: any) => {
@@ -100,20 +100,22 @@ const Admin = () => {
   }, []);
 
   const handleCreateTopic = async () => {
-    if (!newTopic.title.trim()) {
+    if (!newTopic.title.trim() || !newTopic.description.trim()) {
       toast({
         title: "Error",
-        description: "Topic title is required",
+        description: "Topic title and description are required",
         variant: "destructive"
       });
       return;
     }
     try {
-      const { id } = await api.topics.create(newTopic.title, newTopic.description || null, user!.id);
+      const { id } = await api.topics.create(newTopic.title, newTopic.description || null, user!.id, newTopic.timer_enabled, newTopic.timer_seconds);
       const topic: Topic = {
         id,
         title: newTopic.title,
         description: newTopic.description,
+        timer_enabled: newTopic.timer_enabled,
+        timer_seconds: newTopic.timer_seconds,
         created_at: new Date().toISOString()
       };
       setTopics(prev => [topic, ...prev]);
@@ -122,7 +124,7 @@ const Admin = () => {
       toast({ title: "Error", description: (e as Error).message, variant: "destructive" });
       return;
     }
-    setNewTopic({ title: '', description: '' });
+  setNewTopic({ title: '', description: '', timer_enabled: false, timer_seconds: 20 });
     
     toast({
       title: "Success",
@@ -131,9 +133,12 @@ const Admin = () => {
   };
 
   const handleUpdateTopic = async () => {
-    if (!editingTopic || !editingTopic.title.trim()) return;
+    if (!editingTopic || !editingTopic.title.trim() || !editingTopic.description.trim()) {
+      toast({ title: "Error", description: "Topic title and description are required", variant: "destructive" });
+      return;
+    }
     try {
-      await api.topics.update(editingTopic.id, editingTopic.title, editingTopic.description, user!.id);
+  await api.topics.update(editingTopic.id, editingTopic.title, editingTopic.description, user!.id, editingTopic.timer_enabled, editingTopic.timer_seconds);
       await loadData(); // Refresh to get latest data
       setEditingTopic(null);
       toast({ title: "Success", description: "Topic updated successfully" });
@@ -295,6 +300,34 @@ const Admin = () => {
                     />
                   </div>
                 </div>
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="topic-timer-enabled">Enable per-question timer</Label>
+                    <Select value={newTopic.timer_enabled ? 'true' : 'false'} onValueChange={(v) => setNewTopic(prev => ({ ...prev, timer_enabled: v === 'true' }))}>
+                      <SelectTrigger id="topic-timer-enabled">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="false">Disabled</SelectItem>
+                        <SelectItem value="true">Enabled</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="topic-timer-seconds">Timer duration (seconds)</Label>
+                    <Select value={String(newTopic.timer_seconds)} onValueChange={(v) => setNewTopic(prev => ({ ...prev, timer_seconds: parseInt(v) }))}>
+                      <SelectTrigger id="topic-timer-seconds">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="15">15</SelectItem>
+                        <SelectItem value="20">20</SelectItem>
+                        <SelectItem value="30">30</SelectItem>
+                        <SelectItem value="60">60</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
                 <Button onClick={handleCreateTopic} className="bg-quiz-primary hover:bg-quiz-primary/90">
                   Create Topic
                 </Button>
@@ -332,6 +365,34 @@ const Admin = () => {
                                   value={editingTopic.description}
                                   onChange={(e) => setEditingTopic(prev => prev ? { ...prev, description: e.target.value } : null)}
                                 />
+                              </div>
+                            </div>
+                            <div className="grid md:grid-cols-2 gap-4">
+                              <div className="space-y-2">
+                                <Label>Enable per-question timer</Label>
+                                <Select value={editingTopic.timer_enabled ? 'true' : 'false'} onValueChange={(v) => setEditingTopic(prev => prev ? { ...prev, timer_enabled: v === 'true' } : prev)}>
+                                  <SelectTrigger>
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="false">Disabled</SelectItem>
+                                    <SelectItem value="true">Enabled</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              <div className="space-y-2">
+                                <Label>Timer duration (seconds)</Label>
+                                <Select value={String(editingTopic.timer_seconds ?? 20)} onValueChange={(v) => setEditingTopic(prev => prev ? { ...prev, timer_seconds: parseInt(v) } : prev)}>
+                                  <SelectTrigger>
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="15">15</SelectItem>
+                                    <SelectItem value="20">20</SelectItem>
+                                    <SelectItem value="30">30</SelectItem>
+                                    <SelectItem value="60">60</SelectItem>
+                                  </SelectContent>
+                                </Select>
                               </div>
                             </div>
                             <div className="flex gap-2">
