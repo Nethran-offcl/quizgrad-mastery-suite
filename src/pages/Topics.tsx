@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import Logo from "@/components/Logo";
 import { Link } from "react-router-dom";
-import { mockTopics, mockQuestions, mockResults } from "@/data/mockData";
+import { mockTopics, mockQuestions, mockResults, Topic } from "@/data/mockData";
 import { useEffect, useMemo, useState } from "react";
 import { api } from "@/lib/api";
 import { BookOpen, Play, BarChart3, ArrowLeft, RefreshCw } from "lucide-react";
@@ -20,7 +20,7 @@ const Topics = () => {
   }
 
   const [questions, setQuestions] = useState<typeof mockQuestions>([]);
-  const [topics, setTopics] = useState(mockTopics);
+  const [topics, setTopics] = useState<Array<Topic & { timer_enabled?: boolean; timer_seconds?: number }>>(mockTopics as Array<Topic & { timer_enabled?: boolean; timer_seconds?: number }>);
   const [userResults, setUserResults] = useState<any[]>([]);
   const [isRefreshing, setIsRefreshing] = useState(false);
 

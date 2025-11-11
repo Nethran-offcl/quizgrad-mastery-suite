@@ -6,28 +6,28 @@ async function request<T>(path: string, options: { method?: HttpMethod; body?: a
     const headers: Record<string, string> = { "Content-Type": "application/json" };
     if (options.userId !== undefined && options.userId !== null) headers["x-user-id"] = String(options.userId);
 
-    const res = await fetch(`${BASE_URL}${path}`, {
-        method: options.method || "GET",
-        headers,
-        body: options.body ? JSON.stringify(options.body) : undefined,
-    });
+	const res = await fetch(`${BASE_URL}${path}`, {
+		method: options.method || "GET",
+		headers,
+		body: options.body ? JSON.stringify(options.body) : undefined,
+	});
 
-    if (!res.ok) {
-        let message = `HTTP ${res.status}`;
-        try {
-            const data = await res.json();
-            message = data.error || message;
-        } catch {}
-        const err: any = new Error(message);
-        err.status = res.status;
-        throw err;
-    }
+	if (!res.ok) {
+		let message = `HTTP ${res.status}`;
+		try {
+			const data = await res.json();
+			message = data.error || message;
+		} catch {}
+		const err: any = new Error(message);
+		err.status = res.status;
+		throw err;
+	}
 
-    try {
-        return (await res.json()) as T;
-    } catch {
-        return undefined as unknown as T;
-    }
+	try {
+		return (await res.json()) as T;
+	} catch {
+		return undefined as unknown as T;
+	}
 }
 
 export const api = {
@@ -40,10 +40,8 @@ export const api = {
 	},
 	topics: {
 		list: () => request<any[]>(`/api/topics`),
-		create: (title: string, description: string | null, userId: number, timer_enabled?: boolean, timer_seconds?: number) =>
-			request<{ id: number }>(`/api/topics`, { method: "POST", body: { title, description, timer_enabled, timer_seconds }, userId }),
-		update: (id: number, title: string, description: string | null, userId: number, timer_enabled?: boolean, timer_seconds?: number) =>
-			request<unknown>(`/api/topics/${id}`, { method: "PUT", body: { title, description, timer_enabled, timer_seconds }, userId }),
+		create: (title: string, description: string, userId: number, timer_enabled?: boolean, timer_seconds?: number) => request<{ id: number }>(`/api/topics`, { method: "POST", body: { title, description, timer_enabled, timer_seconds }, userId }),
+		update: (id: number, title: string, description: string, userId: number, timer_enabled?: boolean, timer_seconds?: number) => request<unknown>(`/api/topics/${id}`, { method: "PUT", body: { title, description, timer_enabled, timer_seconds }, userId }),
 		remove: (id: number, userId: number) => request<unknown>(`/api/topics/${id}`, { method: "DELETE", userId }),
 	},
 	questions: {

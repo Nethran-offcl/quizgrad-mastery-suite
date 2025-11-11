@@ -4,7 +4,7 @@ export interface Topic {
   id: number;
   title: string;
   description: string;
-  // Optional admin-configured timer settings
+  // Admin-configured timer (optional)
   timer_enabled?: boolean;
   timer_seconds?: number;
   created_at: string;
