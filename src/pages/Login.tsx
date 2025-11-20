@@ -52,41 +52,79 @@ const Login = () => {
   const googleDivRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    // Initialize Google Identity Services with FedCM and render a Sign-In button
-    // @ts-ignore
-    const google = (window as any).google;
-    const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
-    if (!clientId) return; // handled via UI; don't throw here
-    if (!google?.accounts?.id) return;
-    try {
-      google.accounts.id.initialize({
-        client_id: clientId,
-        callback: async (resp: any) => {
-          try {
-            if (!resp?.credential) throw new Error("No Google credential returned");
-            const res = await api.auth.google(resp.credential);
-            toast({ title: "Signed in with Google" });
-            setAuthUser({ id: res.userId, email: res.email, username: res.username, role: res.role });
-            navigate("/dashboard");
-          } catch (e: any) {
-            toast({ title: "Google sign-in failed", description: e?.message || String(e), variant: "destructive" });
-          }
-        },
-        use_fedcm_for_prompt: true,
-      });
-      if (googleDivRef.current) {
-        google.accounts.id.renderButton(googleDivRef.current, {
-          theme: "filled_blue",
-          size: "large",
-          shape: "pill",
-          text: "signin_with",
-        });
+    const initializeGoogle = () => {
+      // @ts-ignore
+      const google = (window as any).google;
+      const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+      
+      if (!clientId) {
+        console.error("VITE_GOOGLE_CLIENT_ID is missing");
+        return false;
       }
-      // Optionally also trigger One Tap; if suppressed, the button is still available
-      google.accounts.id.prompt();
-    } catch {
-      // ignore initialization errors here; UI will show fallback guidance
-    }
+      if (!google?.accounts?.id) return false;
+
+      try {
+        google.accounts.id.initialize({
+          client_id: clientId,
+          callback: async (resp: any) => {
+            try {
+              if (!resp?.credential) throw new Error("No Google credential returned");
+              const res = await api.auth.google(resp.credential);
+              toast({ title: "Signed in with Google" });
+              setAuthUser({ id: res.userId, email: res.email, username: res.username, role: res.role });
+              navigate("/dashboard");
+            } catch (e: any) {
+              toast({ title: "Google sign-in failed", description: e?.message || String(e), variant: "destructive" });
+            }
+          },
+          // use_fedcm_for_prompt: true, // Disabled to reduce console noise during dev
+        });
+        
+        if (googleDivRef.current) {
+          google.accounts.id.renderButton(googleDivRef.current, {
+            theme: "filled_blue",
+            size: "large",
+            shape: "pill",
+            text: "signin_with",
+          });
+        }
+        
+        // Only prompt if not in a cool-down state (this might still throw in dev, which is fine)
+        try {
+          google.accounts.id.prompt((notification: any) => {
+            if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
+              console.log("Google One Tap skipped:", notification.getNotDisplayedReason());
+            }
+          });
+        } catch (e) {
+          console.error("Google prompt error:", e);
+        }
+        
+        return true;
+      } catch (e) {
+        console.error("Google Sign-In initialization error:", e);
+        return false;
+      }
+    };
+
+    // Try immediately
+    if (initializeGoogle()) return;
+
+    // Retry if not loaded yet
+    const timer = setInterval(() => {
+      if (initializeGoogle()) {
+        clearInterval(timer);
+      }
+    }, 100);
+
+    return () => {
+      clearInterval(timer);
+      // @ts-ignore
+      const google = (window as any).google;
+      if (google?.accounts?.id) {
+        google.accounts.id.cancel();
+      }
+    };
   }, [login, navigate, toast]);
 
   return (
